@@ -1,0 +1,29 @@
+# Android / Gradle
+.gradle/
+build/
+app/build/
+local.properties
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Keystores — never commit signing material
+*.jks
+*.keystore
+keystore.properties
+
+# OS / NFS
+.DS_Store
+Thumbs.db
+*.nfs*
+
+# Secrets
+*.env
+.env.*
+secrets.*
