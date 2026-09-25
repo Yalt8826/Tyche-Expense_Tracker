@@ -13,3 +13,4 @@ One line per call. Unspecified-in-docs choices made during implementation; appro
 | 2026-09-26 | P0 | Launcher icon = adaptive vector (violet→cyan gradient disc + abstract ₹) | Docs specify palette, not icon art; placeholder-grade premium mark, revisited at P6 polish. |
 | 2026-09-26 | P0 | `org.gradle.vfs.watch=false` | Repo lives on NFS (/mnt/storage); inotify does not cross NFS (same class of issue as WATCHFILES_FORCE_POLLING on other NFS dev servers). |
 | 2026-09-26 | P0 | app label "Expense Tracker" | Working label; not specified in docs. |
+| 2026-09-26 | P1 | Instrumented-test AVD uses system-images;android-36;google_apis;x86_64 (mission suggested android-35) | android-35 image is not installed on athena; android-36 google_apis already present (servgrid uses it) — avoids a ~1.5 GB download; v1 minSdk 29 / target 36 unaffected. |
