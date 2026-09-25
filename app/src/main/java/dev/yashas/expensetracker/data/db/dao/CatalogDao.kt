@@ -12,6 +12,7 @@ import dev.yashas.expensetracker.data.db.entity.SmsRawEntity
 import dev.yashas.expensetracker.data.db.entity.TagEntity
 import dev.yashas.expensetracker.data.db.entity.TemplateEntity
 import dev.yashas.expensetracker.data.db.entity.TxnTagCrossRef
+import dev.yashas.expensetracker.domain.model.SmsParsedState
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -84,6 +85,9 @@ interface CatalogDao {
 
     @Query("SELECT * FROM sms_raw WHERE id = :id")
     suspend fun smsById(id: Long): SmsRawEntity?
+
+    @Query("UPDATE sms_raw SET parsedState = :state WHERE id = :id")
+    suspend fun markSmsState(id: Long, state: SmsParsedState)
 
     @Query("DELETE FROM sms_raw WHERE parsedState = 'PARSED' AND timestamp < :cutoff")
     suspend fun purgeParsedOlderThan(cutoff: Long): Int

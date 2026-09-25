@@ -2,6 +2,18 @@
 
 Plain-language notes, 3 lines per milestone (newest first).
 
+## 2026-09-26 — P4 core UI GREEN
+
+1. Transactions ledger screen live: free-text search with live result summary, day-ready list with provenance chips (✓ auto / ⚠ review / ✎ manual), detail sheet with plain-facts explainability + delete, friendly empty states.
+2. Review Inbox shipped as a filtered Transactions mode: suggested-category cards with one-tap confirm (reason text included), [Keep both]/[Merge] duplicate cards, "Mark as transfer" pair cards — plus Home review banner with live count.
+3. Quick-add sheet (₹-first, category chips) + Home hero (September 2026 · ₹0 · "Spent this month") verified ON-DEVICE via screenshot: install, cold launch, tab navigation all healthy; suggestion engine wired (rules → dictionary → history).
+
+## 2026-09-26 — P3 capture pipeline GREEN
+
+1. Funnel live end-to-end: SmsReceiver (SMS_RECEIVED, goAsync-safe) → sender allowlist (before any disk write) → cheap screen → field extraction (amount/mask/UTR/balance/merchant/VPA/date) → Room as AUTO_REVIEW; no INTERNET permission, receiver gated by BROADCAST_SMS.
+2. Template induction working: digit-masked signatures stored per confirmed message; learnTemplate + sibling ingest carries the template key; seeded redacted fixtures for HDFC/SBI/ICICI/Axis.
+3. Dedup layered: raw-SMS digest (carrier redeliveries) + ledger (account, UTR) unique index; 31 tests green including the "credit card" direction trap (fixture-caught, fixed with lookahead).
+
 ## 2026-09-26 — P2 data layer GREEN
 
 1. Room schema v1 live: 9 entities (transactions ledger, accounts, categories, tags+cross-ref, rules, budgets, templates, raw SMS), paise-Long amounts, exported schema committed at `app/schemas/`, DB tests via Robolectric.

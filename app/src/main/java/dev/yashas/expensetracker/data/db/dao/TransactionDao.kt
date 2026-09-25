@@ -123,6 +123,21 @@ interface TransactionDao {
 
     @Query("SELECT * FROM transactions WHERE transferGroupId = :groupId")
     suspend fun transferLegs(groupId: String): List<TransactionEntity>
+
+    @Query("SELECT * FROM transactions WHERE provenance = 'AUTO_REVIEW' ORDER BY timestamp DESC")
+    fun observeReviewInbox(): Flow<List<TransactionEntity>>
+
+    /** History-based suggestion source: most frequent category for one merchant/vpa identity. */
+    @Query(
+        """
+        SELECT categoryKey AS label, SUM(amountPaise) AS amountPaise, COUNT(*) AS txnCount
+        FROM transactions
+        WHERE type = 'EXPENSE' AND categoryKey IS NOT NULL
+          AND (LOWER(COALESCE(merchantName, '')) = :identity OR LOWER(COALESCE(vpa, '')) = :identity)
+        GROUP BY categoryKey ORDER BY COUNT(*) DESC LIMIT 1
+        """
+    )
+    suspend fun historyCategoryCounts(identity: String): List<CategoryTotalRow>
 }
 
 data class CategoryTotalRow(val label: String, val amountPaise: Long, val txnCount: Int)

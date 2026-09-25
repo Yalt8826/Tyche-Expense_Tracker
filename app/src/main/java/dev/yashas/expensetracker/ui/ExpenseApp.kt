@@ -3,14 +3,20 @@ package dev.yashas.expensetracker.ui
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -18,19 +24,27 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import dev.yashas.expensetracker.data.repo.TxnRepository
 import dev.yashas.expensetracker.ui.components.PlaceholderScreen
+import dev.yashas.expensetracker.ui.home.HomeScreen
+import dev.yashas.expensetracker.ui.ledger.LedgerScreen
 import dev.yashas.expensetracker.ui.navigation.Destination
 import dev.yashas.expensetracker.ui.navigation.bottomTabOrder
+import dev.yashas.expensetracker.ui.quickadd.QuickAddSheet
 
 /**
- * App shell: 4 tabs + center-adjacent quick-add FAB (00-MASTER §7).
- * Tabs keep their state across switches (saveState/restoreState).
+ * App shell: 4 tabs + quick-add FAB (00-MASTER §7). Review Inbox is reached from the
+ * Home banner as a filtered mode of Transactions (route arg), never its own tab.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExpenseApp() {
+fun ExpenseApp(repo: TxnRepository) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
+
+    var quickAddOpen by remember { mutableStateOf(false) }
+    val categories by repo.observeCategories().collectAsState(initial = emptyList())
 
     Scaffold(
         bottomBar = {
@@ -52,8 +66,7 @@ fun ExpenseApp() {
             }
         },
         floatingActionButton = {
-            // Quick-add sheet arrives in P4 (01-SCREENS S7); shell placement is part of the skeleton.
-            FloatingActionButton(onClick = { /* quick-add: P4 */ }) {
+            FloatingActionButton(onClick = { quickAddOpen = true }) {
                 Icon(imageVector = Icons.Filled.Add, contentDescription = "Quick add")
             }
         },
@@ -64,10 +77,13 @@ fun ExpenseApp() {
             modifier = Modifier.padding(innerPadding),
         ) {
             composable(Destination.HOME.route) {
-                PlaceholderScreen(title = "Home", subtitle = "Dashboard lands in P4")
+                HomeScreen(
+                    repo = repo,
+                    onOpenReview = { navController.navigate(TRANSACTIONS_REVIEW_ROUTE) },
+                )
             }
             composable(Destination.TRANSACTIONS.route) {
-                PlaceholderScreen(title = "Transactions", subtitle = "Ledger lands in P4")
+                LedgerScreen(repo = repo, reviewMode = false)
             }
             composable(Destination.ANALYTICS.route) {
                 PlaceholderScreen(title = "Analytics", subtitle = "Charts land in P5")
@@ -75,6 +91,21 @@ fun ExpenseApp() {
             composable(Destination.BUDGETS.route) {
                 PlaceholderScreen(title = "Budgets", subtitle = "Budgets land in P5")
             }
+            composable(TRANSACTIONS_REVIEW_ROUTE) {
+                LedgerScreen(repo = repo, reviewMode = true)
+            }
+        }
+    }
+
+    if (quickAddOpen) {
+        ModalBottomSheet(onDismissRequest = { quickAddOpen = false }) {
+            QuickAddSheet(
+                repo = repo,
+                categories = categories,
+                onDone = { quickAddOpen = false },
+            )
         }
     }
 }
+
+private const val TRANSACTIONS_REVIEW_ROUTE = "transactions/review"

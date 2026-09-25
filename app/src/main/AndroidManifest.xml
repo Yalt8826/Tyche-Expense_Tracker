@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- NOTE: no INTERNET permission, ever. Zero-network is a product guarantee (00-MASTER §2.7). -->
+    <!--
+      Zero-network is a product guarantee (00-MASTER §2.7): NO INTERNET permission, ever.
+      SMS is the only sensitive channel (04-TECH §1).
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
 
     <application
         android:allowBackup="true"
@@ -19,6 +24,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Funnel entry (04-TECH §4). System-only sender; high priority for ordered delivery. -->
+        <receiver
+            android:name=".data.capture.SmsReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter android:priority="999">
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

@@ -1,5 +1,8 @@
 package dev.yashas.expensetracker.domain.model
 
+/** Debit/credit direction on a bank SMS. */
+enum class Direction { DEBIT, CREDIT }
+
 /** Five ledger types, day one (00-MASTER §4). Stored by enum name via Room's enum converter. */
 enum class TxnType { EXPENSE, INCOME, TRANSFER, REFUND, ADJUSTMENT }
 
