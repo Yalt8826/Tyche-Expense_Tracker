@@ -2,6 +2,12 @@
 
 Plain-language notes, 3 lines per milestone (newest first).
 
+## 2026-09-26 — P2 data layer GREEN
+
+1. Room schema v1 live: 9 entities (transactions ledger, accounts, categories, tags+cross-ref, rules, budgets, templates, raw SMS), paise-Long amounts, exported schema committed at `app/schemas/`, DB tests via Robolectric.
+2. Ledger invariants unit-tested (8 tests): transfer pairing/exclusion (±30 min window, cross-account), refund netting into source category (partial + unmatched cases), paise exactness, duplicate suspicion (UTR-aware), Indian ₹ grouping.
+3. DAO/Room layer verified against real SQLite: (account, UTR) unique dedup enforced, NULL-UTR rows never collide, SQL aggregates exclude transfers and net refunds; 12 tests total green + APK builds.
+
 ## 2026-09-26 — P1 scaffold GREEN
 
 1. Navigation skeleton live: 4 tabs (Home/Transactions/Analytics/Budgets) with state-preserving switching + quick-add FAB in the dark violet/cyan M3 theme; MainActivity hosts the Compose app shell.

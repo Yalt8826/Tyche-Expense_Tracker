@@ -49,6 +49,11 @@ android {
     }
 }
 
+// Room schema export (04-TECH §3: migrations + schema history from day one).
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     // AndroidX core
     implementation(libs.androidx.core.ktx)
@@ -90,6 +95,7 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.test.ext.junit)
     testImplementation(libs.room.testing)
 
     // Instrumented tests

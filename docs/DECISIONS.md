@@ -14,3 +14,7 @@ One line per call. Unspecified-in-docs choices made during implementation; appro
 | 2026-09-26 | P0 | `org.gradle.vfs.watch=false` | Repo lives on NFS (/mnt/storage); inotify does not cross NFS (same class of issue as WATCHFILES_FORCE_POLLING on other NFS dev servers). |
 | 2026-09-26 | P0 | app label "Expense Tracker" | Working label; not specified in docs. |
 | 2026-09-26 | P1 | Instrumented-test AVD uses system-images;android-36;google_apis;x86_64 (mission suggested android-35) | android-35 image is not installed on athena; android-36 google_apis already present (servgrid uses it) — avoids a ~1.5 GB download; v1 minSdk 29 / target 36 unaffected. |
+| 2026-09-26 | P2 | `valueDate` stored as epochDay (`Long?`), timestamp as epochMillis | Date-only granularity is what aggregates group by; epochDay keeps daily SQL integer division trivial; in-body date preferred, delivery fallback (04 §3a). |
+| 2026-09-26 | P2 | Dedup = hard unique index `(accountId, utrRef)` + soft digest on `sms_raw`; same-UTR inserts are rejected, near-dupes surface in Review | 00 §4: (account, ref/UTR) key where present; Review cards carry the ambiguous cases; SQLite NULLs distinct → manual rows unconstrained. |
+| 2026-09-26 | P2 | Room POJO aliases avoid `key` (SQLite reserved word): `CategoryTotalRow.label` | Room's query parser rejects `key` as a column alias even though SQLite engine allows it quoted. |
+| 2026-09-26 | P2 | Robolectric tests pinned `@Config(sdk = [34])` | Robolectric's stable Android framework level; independent of the API-36 instrumented AVD. |
