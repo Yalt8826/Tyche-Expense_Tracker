@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Framework theme: Compose draws everything; XML theme only sets the window chrome.
+         Dark-only in v1 (light theme is v2 scope per 00-MASTER §10). -->
+    <style name="Theme.ExpenseTracker" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:statusBarColor">@color/window_background</item>
+        <item name="android:navigationBarColor">@color/window_background</item>
+    </style>
+</resources>
