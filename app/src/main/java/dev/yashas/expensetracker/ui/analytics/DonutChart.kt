@@ -51,7 +51,8 @@ fun DonutChart(
                         val center = Offset(size.width / 2f, size.height / 2f)
                         val dx = offset.x - center.x
                         val dy = offset.y - center.y
-                        val radius = minOf(size.width, size.height) / 2f
+                        val side = minOf(size.width, size.height)
+                        val radius = side / 2f
                         val dist = sqrt(dx * dx + dy * dy)
                         if (dist > radius || dist < radius * 0.45f) {
                             selected = -1 // tap-away outside ring = back to total
@@ -71,9 +72,11 @@ fun DonutChart(
                     }
                 },
         ) {
+            // draw in a centered SQUARE so arcs stay circular in any container
             val stroke = Stroke(width = size.minDimension * 0.11f, cap = StrokeCap.Butt)
-            val inset = stroke.width / 2
-            val arcSize = Size(size.width - stroke.width, size.height - stroke.width)
+            val side = minOf(size.width, size.height) - stroke.width
+            val topLeft = Offset((size.width - side) / 2f, (size.height - side) / 2f)
+            val arcSize = Size(side, side)
             var startAngle = -90f
             slices.forEachIndexed { i, slice ->
                 val sweep = slice.amountPaise * 360f / total
@@ -84,7 +87,7 @@ fun DonutChart(
                     startAngle = startAngle - extra / 2,
                     sweepAngle = (sweep - if (slices.size > 1) 2f else 0f).coerceAtLeast(1f) + extra,
                     useCenter = false,
-                    topLeft = Offset(inset, inset),
+                    topLeft = topLeft,
                     size = arcSize,
                     style = stroke,
                 )

@@ -56,11 +56,11 @@ interface TransactionDao {
 
     @Query(
         """
-        SELECT valueDate / 86400000 AS day, type, SUM(amountPaise) AS amountPaise
+        SELECT valueDate AS day, type, SUM(amountPaise) AS amountPaise
         FROM transactions
         WHERE type IN ('EXPENSE', 'INCOME') AND valueDate IS NOT NULL
           AND (:from IS NULL OR valueDate >= :from) AND (:to IS NULL OR valueDate < :to)
-        GROUP BY valueDate / 86400000, type
+        GROUP BY valueDate, type
         """
     )
     suspend fun dailySeriesByType(from: Long?, to: Long?): List<DailyTypeRow>
@@ -72,6 +72,10 @@ interface TransactionDao {
         """
     )
     suspend fun countInRange(from: Long?, to: Long?): Int
+
+    /** Demo-seed marker: rows tagged ruleAppliedKey='demo'. */
+    @Query("SELECT COUNT(*) FROM transactions WHERE ruleAppliedKey = 'demo'")
+    suspend fun countDemo(): Int
 
     /** Overall budget limit (budgets.categoryKey IS NULL), 0 when none. */
     @Query("SELECT COALESCE(SUM(amountPaise), 0) FROM budgets WHERE categoryKey IS NULL")
@@ -106,11 +110,11 @@ interface TransactionDao {
 
     @Query(
         """
-        SELECT valueDate / 86400000 AS day, SUM(amountPaise) AS amountPaise
+        SELECT valueDate AS day, SUM(amountPaise) AS amountPaise
         FROM transactions
         WHERE type = 'EXPENSE' AND valueDate IS NOT NULL
           AND (:from IS NULL OR valueDate >= :from) AND (:to IS NULL OR valueDate < :to)
-        GROUP BY valueDate / 86400000 ORDER BY day
+        GROUP BY valueDate ORDER BY day
         """
     )
     suspend fun dailySeries(from: Long?, to: Long?): List<DailyTotalRow>

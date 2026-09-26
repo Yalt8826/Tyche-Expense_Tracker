@@ -37,6 +37,11 @@ import dev.yashas.expensetracker.data.repo.AnalyticsRepository
 import dev.yashas.expensetracker.domain.model.MoneyFormat
 import dev.yashas.expensetracker.ui.components.categoryColor
 
+/** Rotating series palette for donut slices (02-CHARTS: distinguishable set; final ramp in token doc). */
+private val donutPalette = listOf(
+    "series_violet", "series_cyan", "series_amber", "series_pink", "series_lime", "series_blue",
+)
+
 /**
  * S12 Analytics dashboard (v1 core): period selector, income-vs-expense hero bars (C4,
  * Vico), spending trend line (C2, Vico), interactive donut (C3, custom Canvas),
@@ -115,23 +120,26 @@ fun AnalyticsScreen(repo: AnalyticsRepository) {
             )
         }
 
-        // C3 interactive donut (custom Canvas)
+        // C3 interactive donut (custom Canvas); slices sorted desc by amount already
         if (data.categoryTotals.isNotEmpty()) {
             Text("Where money goes", style = MaterialTheme.typography.titleMedium)
-            DonutChart(
-                slices = data.categoryTotals.map {
-                    DonutSlice(label = it.label, amountPaise = it.amountPaise, colorToken = "series_violet")
-                },
-            )
-            // legend with semantic color mapping where categories exist
-            data.categoryTotals.take(5).forEach { row ->
+            val sliceData = data.categoryTotals.mapIndexed { i, row ->
+                DonutSlice(
+                    label = row.label.substringAfterLast('.').lowercase().replaceFirstChar { it.uppercase() },
+                    amountPaise = row.amountPaise,
+                    colorToken = donutPalette[i % donutPalette.size],
+                )
+            }
+            DonutChart(slices = sliceData)
+            sliceData.take(5).forEach { slice ->
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text(row.label, style = MaterialTheme.typography.bodyMedium)
+                    Text("● ", color = categoryColor(slice.colorToken), style = MaterialTheme.typography.bodyMedium)
+                    Text(slice.label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        MoneyFormat.formatPaise(row.amountPaise),
+                        MoneyFormat.formatPaise(slice.amountPaise),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                     )

@@ -88,9 +88,22 @@ class BudgetRepository(
         val from = ym.atDay(1).toEpochDay()
         val to = ym.plusMonths(1).atDay(1).toEpochDay()
 
-        val spentByCategory = dao.categoryBreakdown(from, to).associate { it.label to it.amountPaise }
+        val spentByCategoryRaw = dao.categoryBreakdown(from, to).associate { it.label to it.amountPaise }
+        // roll subcategory spend up into parents (a "food" budget must see food.restaurants)
+        val cats = catalog.observeCategories().first()
+        val keyById = cats.associate { it.id to it.key }
+        val spentByCategory = spentByCategoryRaw.toMutableMap()
+        for ((key, amount) in spentByCategoryRaw) {
+            var current = cats.firstOrNull { it.key == key }
+            while (current?.parentId != null) {
+                val parentKey = keyById[current.parentId]
+                if (parentKey != null) spentByCategory.merge(parentKey, amount, Long::plus)
+                current = cats.firstOrNull { it.id == current.parentId }
+            }
+        }
+        // overall = gross spend regardless of category roll-up (no double counting)
+        val spentTotal = dao.grossExpensePaise(from, to)
         val overallLimit = dao.overallBudgetPaise()?.takeIf { it > 0 }
-        val spentTotal = spentByCategory.values.sum()
 
         return BudgetData(
             overall = BudgetMath.overall(spentTotal, overallLimit, today),

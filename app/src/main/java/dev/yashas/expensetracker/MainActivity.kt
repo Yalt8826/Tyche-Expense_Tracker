@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
+import dev.yashas.expensetracker.data.repo.DemoData
 import dev.yashas.expensetracker.ui.ExpenseApp
 import dev.yashas.expensetracker.ui.theme.ExpenseTheme
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +21,10 @@ class MainActivity : ComponentActivity() {
         val txnRepo = AppGraph.txnRepository(this)
         val analyticsRepo = AppGraph.analyticsRepository(this)
         val budgetRepo = AppGraph.budgetRepository(this)
-        lifecycleScope.launch(Dispatchers.IO) { AppGraph.bootstrap(this@MainActivity) }
+        lifecycleScope.launch(Dispatchers.IO) {
+            AppGraph.bootstrap(this@MainActivity)
+            DemoData.seedIfNeeded(AppGraph.database(this@MainActivity))
+        }
         setContent {
             ExpenseTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {

@@ -2,6 +2,12 @@
 
 Plain-language notes, 3 lines per milestone (newest first).
 
+## 2026-09-26 — Demo data pass + on-device fixes
+
+1. DEBUG-only demo seeder added: 40 days of realistic transactions (13 merchants, salaries, a self-transfer pair, a refund, 2 review items) + sample budgets; deterministic, wipeable via the `demo` tag.
+2. Populated screens exposed 3 real bugs, all fixed & tested (41 green): donut ellipse→circle with per-slice palette, daily-series SQL collapsing to day 0 (epochDay double-division), budget cards ignoring subcategory spend (roll-up added).
+3. Fixed APK built and waiting on athena — phone dropped off adb mid-install; reinstall pending.
+
 ## 2026-09-26 — P5 analytics + budgets GREEN
 
 1. Analytics dashboard live: 1M/3M/6M/1Y period selector, income-vs-expense hero bars + spending trend line (Vico), custom Canvas donut with tap-to-drill center readout (signature interaction #2), top merchants, deterministic insight cards (no ML).
