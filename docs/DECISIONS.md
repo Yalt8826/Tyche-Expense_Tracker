@@ -25,3 +25,6 @@ One line per call. Unspecified-in-docs choices made during implementation; appro
 | 2026-09-26 | P3 | "credit card" excluded from credit-direction keywords (negative lookahead) | ICICI/HDFC card-debit fixtures read "spent on Credit Card" — the product noun must not flip direction detection (fixture-caught). |
 | 2026-09-26 | P4 | Icon-name indirection (`IconsAuto` map) between DB `icon` strings and Material icons | Category icons stay data (Room-friendly, seedable); Compose keeps compile-time vector safety at the mapping edge. |
 | 2026-09-26 | P4 | Manual quick-add stores rupee input ×100 at the repository edge | S7 keypad collects rupees as the user thinks; the ledger sees only paise Longs (04 §3a no-float rule preserved). |
+| 2026-09-26 | P5 | Vico charts plot rupees (`paise/100`), donut + gauges stay custom Canvas | 02-CHARTS engine split kept; axis labels read naturally in rupees; exact paise math remains ledger-only. |
+| 2026-09-26 | P5 | Overall pace "on track" verdict within ±5pp of calendar fraction | S15 asks for plain verdicts; small tolerance avoids nagging every single day (tunable constant in BudgetMath). |
+| 2026-09-26 | P5 | Vico 3.x imports: everything under `com.patrykandpatrick.vico.compose.cartesian.*` | Sample-app sources used as ground truth; guide blog posts still show old `core.*` paths that no longer resolve. |

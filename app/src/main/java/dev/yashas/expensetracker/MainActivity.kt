@@ -17,12 +17,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val repo = AppGraph.txnRepository(this)
+        val txnRepo = AppGraph.txnRepository(this)
+        val analyticsRepo = AppGraph.analyticsRepository(this)
+        val budgetRepo = AppGraph.budgetRepository(this)
         lifecycleScope.launch(Dispatchers.IO) { AppGraph.bootstrap(this@MainActivity) }
         setContent {
             ExpenseTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    ExpenseApp(repo = repo)
+                    ExpenseApp(txnRepo = txnRepo, analyticsRepo = analyticsRepo, budgetRepo = budgetRepo)
                 }
             }
         }

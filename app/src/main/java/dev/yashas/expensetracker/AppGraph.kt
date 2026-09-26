@@ -6,6 +6,8 @@ import dev.yashas.expensetracker.data.capture.CaptureEngine
 import dev.yashas.expensetracker.data.capture.SmsIngestor
 import dev.yashas.expensetracker.data.db.ExpenseDatabase
 import dev.yashas.expensetracker.data.repo.TxnRepository
+import dev.yashas.expensetracker.data.repo.AnalyticsRepository
+import dev.yashas.expensetracker.data.repo.BudgetRepository
 import dev.yashas.expensetracker.data.rules.CategorySeed
 import dev.yashas.expensetracker.data.rules.SuggestionEngine
 import kotlinx.coroutines.flow.first
@@ -59,5 +61,14 @@ object AppGraph {
         TxnRepository(
             db = database(context),
             suggestions = SuggestionEngine(database(context)),
+        )
+
+    fun analyticsRepository(context: Context): AnalyticsRepository =
+        AnalyticsRepository(database(context).transactionDao())
+
+    fun budgetRepository(context: Context): BudgetRepository =
+        BudgetRepository(
+            dao = database(context).transactionDao(),
+            catalog = database(context).catalogDao(),
         )
 }

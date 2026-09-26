@@ -25,6 +25,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import dev.yashas.expensetracker.data.repo.TxnRepository
+import dev.yashas.expensetracker.data.repo.AnalyticsRepository
+import dev.yashas.expensetracker.data.repo.BudgetRepository
+import dev.yashas.expensetracker.ui.analytics.AnalyticsScreen
+import dev.yashas.expensetracker.ui.budgets.BudgetScreen
 import dev.yashas.expensetracker.ui.components.PlaceholderScreen
 import dev.yashas.expensetracker.ui.home.HomeScreen
 import dev.yashas.expensetracker.ui.ledger.LedgerScreen
@@ -38,13 +42,17 @@ import dev.yashas.expensetracker.ui.quickadd.QuickAddSheet
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExpenseApp(repo: TxnRepository) {
+fun ExpenseApp(
+    txnRepo: TxnRepository,
+    analyticsRepo: AnalyticsRepository,
+    budgetRepo: BudgetRepository,
+) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
 
     var quickAddOpen by remember { mutableStateOf(false) }
-    val categories by repo.observeCategories().collectAsState(initial = emptyList())
+    val categories by txnRepo.observeCategories().collectAsState(initial = emptyList())
 
     Scaffold(
         bottomBar = {
@@ -78,21 +86,21 @@ fun ExpenseApp(repo: TxnRepository) {
         ) {
             composable(Destination.HOME.route) {
                 HomeScreen(
-                    repo = repo,
+                    repo = txnRepo,
                     onOpenReview = { navController.navigate(TRANSACTIONS_REVIEW_ROUTE) },
                 )
             }
             composable(Destination.TRANSACTIONS.route) {
-                LedgerScreen(repo = repo, reviewMode = false)
+                LedgerScreen(repo = txnRepo, reviewMode = false)
             }
             composable(Destination.ANALYTICS.route) {
-                PlaceholderScreen(title = "Analytics", subtitle = "Charts land in P5")
+                AnalyticsScreen(repo = analyticsRepo)
             }
             composable(Destination.BUDGETS.route) {
-                PlaceholderScreen(title = "Budgets", subtitle = "Budgets land in P5")
+                BudgetScreen(repo = budgetRepo, categories = categories)
             }
             composable(TRANSACTIONS_REVIEW_ROUTE) {
-                LedgerScreen(repo = repo, reviewMode = true)
+                LedgerScreen(repo = txnRepo, reviewMode = true)
             }
         }
     }
@@ -100,7 +108,7 @@ fun ExpenseApp(repo: TxnRepository) {
     if (quickAddOpen) {
         ModalBottomSheet(onDismissRequest = { quickAddOpen = false }) {
             QuickAddSheet(
-                repo = repo,
+                repo = txnRepo,
                 categories = categories,
                 onDone = { quickAddOpen = false },
             )

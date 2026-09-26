@@ -54,6 +54,33 @@ interface TransactionDao {
     )
     suspend fun grossExpensePaise(from: Long?, to: Long?): Long
 
+    @Query(
+        """
+        SELECT valueDate / 86400000 AS day, type, SUM(amountPaise) AS amountPaise
+        FROM transactions
+        WHERE type IN ('EXPENSE', 'INCOME') AND valueDate IS NOT NULL
+          AND (:from IS NULL OR valueDate >= :from) AND (:to IS NULL OR valueDate < :to)
+        GROUP BY valueDate / 86400000, type
+        """
+    )
+    suspend fun dailySeriesByType(from: Long?, to: Long?): List<DailyTypeRow>
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM transactions
+        WHERE (:from IS NULL OR valueDate >= :from) AND (:to IS NULL OR valueDate < :to)
+        """
+    )
+    suspend fun countInRange(from: Long?, to: Long?): Int
+
+    /** Overall budget limit (budgets.categoryKey IS NULL), 0 when none. */
+    @Query("SELECT COALESCE(SUM(amountPaise), 0) FROM budgets WHERE categoryKey IS NULL")
+    suspend fun overallBudgetPaise(): Long?
+
+    /** Per-category limits as (categoryKey, limitPaise). */
+    @Query("SELECT categoryKey AS label, amountPaise AS amountPaise, 0 AS txnCount FROM budgets WHERE categoryKey IS NOT NULL")
+    suspend fun categoryLimits(): List<CategoryTotalRow>
+
     /** Refund netting: refunds joined to their source expense's category (04 §4). */
     @Query(
         """
@@ -143,3 +170,5 @@ interface TransactionDao {
 data class CategoryTotalRow(val label: String, val amountPaise: Long, val txnCount: Int)
 
 data class DailyTotalRow(val day: Long, val amountPaise: Long)
+
+data class DailyTypeRow(val day: Long, val type: TxnType, val amountPaise: Long)

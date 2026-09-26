@@ -2,6 +2,12 @@
 
 Plain-language notes, 3 lines per milestone (newest first).
 
+## 2026-09-26 — P5 analytics + budgets GREEN
+
+1. Analytics dashboard live: 1M/3M/6M/1Y period selector, income-vs-expense hero bars + spending trend line (Vico), custom Canvas donut with tap-to-drill center readout (signature interaction #2), top merchants, deterministic insight cards (no ML).
+2. Budgets live: dual-progress radial gauge (spend vs calendar pace) with plain verdicts + end-of-month projection, per-category budget cards with On track / Almost there / Over budget states, tap-to-edit sheet (overall + per-category), all persisted in Room.
+3. 36 tests green (5 new: month bucketing, insights, budget states, pace projection); APK installed on the physical A05 via adb — phone becomes the real-SMS test bed from here.
+
 ## 2026-09-26 — P4 core UI GREEN
 
 1. Transactions ledger screen live: free-text search with live result summary, day-ready list with provenance chips (✓ auto / ⚠ review / ✎ manual), detail sheet with plain-facts explainability + delete, friendly empty states.
