@@ -178,32 +178,34 @@ fun HomeScreen(
             Text("Tags", style = MaterialTheme.typography.titleMedium)
             TextButton(onClick = { addTagOpen = true }) { Text("+ New tag") }
         }
-        // existing tags so the section never looks empty
+        // existing tags so the section never looks empty — ordered by spend to mirror the bar
+        val chipKeys = HomeBreakdown.chipOrder(
+            slices = state.slices,
+            topKeys = state.categories.values.filter { it.parentId == null }.map { it.key },
+        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            state.categories.values
-                .filter { it.parentId == null }
-                .sortedBy { it.name }
-                .forEach { cat ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
+            chipKeys.forEach { key ->
+                val cat = state.categories[key] ?: return@forEach
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Box(
                         modifier = Modifier
-                            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(categoryColor(cat.colorToken), CircleShape),
-                        )
-                        Text(cat.name, style = MaterialTheme.typography.labelMedium)
-                    }
+                            .size(8.dp)
+                            .background(categoryColor(cat.colorToken), CircleShape),
+                    )
+                    Text(cat.name, style = MaterialTheme.typography.labelMedium)
                 }
+            }
         }
 
         // --- recent ---

@@ -71,4 +71,18 @@ object HomeBreakdown {
             fraction = rest.sumOf { it.fraction.toDouble() }.toFloat(),
         )
     }
+
+    /**
+     * Order tag chips to mirror the proportion bar: biggest spend first. A top-level
+     * tag's spend includes its subcategories ("food" sees "food.restaurants"); tags
+     * with no spend this month go last, alphabetically.
+     */
+    fun chipOrder(slices: List<Slice>, topKeys: List<String>): List<String> {
+        fun spendOf(key: String): Long = slices
+            .filter { it.categoryKey == key || it.categoryKey.startsWith("$key.") }
+            .sumOf { it.amountPaise }
+        return topKeys.sortedWith(
+            compareByDescending<String>(::spendOf).thenBy { it },
+        )
+    }
 }
