@@ -35,7 +35,20 @@ class HomeViewModel(
         val recent: List<TransactionEntity> = emptyList(),
         val categories: Map<String, CategoryEntity> = emptyMap(),
         val slices: List<HomeBreakdown.Slice> = emptyList(),
-    )
+        /** Gross month spend — the second stat square. */
+        val monthGrossPaise: Long = 0,
+        /** Days elapsed in the month (for the pace square). */
+        val dayOfMonth: Int = LocalDate.now().dayOfMonth,
+        val daysInMonth: Int = YearMonth.now().lengthOfMonth(),
+    ) {
+        /** Average daily spend this month (gross), for the pace square. */
+        val avgDailyPaise: Long
+            get() = if (dayOfMonth > 0) monthGrossPaise / dayOfMonth else 0L
+
+        /** Projected month-end spend at the current pace. */
+        val projectedPaise: Long
+            get() = avgDailyPaise * daysInMonth
+    }
 
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state.asStateFlow()
@@ -62,6 +75,9 @@ class HomeViewModel(
                         userName = name,
                         categories = categories,
                         monthNetPaise = LedgerMath.netSpendPaise(monthRows),
+                        monthGrossPaise = monthRows
+                            .filter { it.type == TxnType.EXPENSE }
+                            .sumOf { it.amountPaise },
                         monthLabel = MonthLabel.current(),
                         recent = rows.sortedByDescending { r -> r.timestamp }.take(5),
                         slices = HomeBreakdown.slices(

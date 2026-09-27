@@ -2,6 +2,12 @@
 
 Plain-language notes, 3 lines per milestone (newest first).
 
+## 2026-09-27 — Hex picker + twin stat squares
+
+1. Tag color selection upgraded: custom honeycomb picker (4-5-4, 13 curated hues) drawn on Canvas with hex-geometry tap detection and a white-outlined selection; new tags store real #RRGGBB values that every surface (bar, avatars, chips) renders via the shared color mapper.
+2. Review banner replaced by twin stat squares: "84 · to confirm" (tap → inbox) and "₹2,880 · avg/day · proj ₹86,407" (gross pace + month-end projection).
+3. Verified on-device: dialog renders per spec (no distortion, state-dependent Create button); 45 tests green.
+
 ## 2026-09-27 — Home redesign (greeting, proportion bar, tags)
 
 1. Home rebuilt per request: greeting + name + avatar (tap to rename, DataStore-backed) at top; review banner moved BELOW the hero; hero amount + "after refunds" label kept.
