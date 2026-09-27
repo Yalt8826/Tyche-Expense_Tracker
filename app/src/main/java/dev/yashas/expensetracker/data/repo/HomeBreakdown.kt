@@ -9,6 +9,9 @@ import dev.yashas.expensetracker.domain.model.TxnType
  */
 object HomeBreakdown {
 
+    const val OTHERS_TOKEN = "series_grey"
+    const val OTHERS_LABEL = "Others"
+
     data class Slice(
         val categoryKey: String,
         val label: String,
@@ -49,5 +52,23 @@ object HomeBreakdown {
                     fraction = amount.toFloat() / total,
                 )
             }
+    }
+
+    /**
+     * Compact display form for the Home bar: top N tags stay, everything smaller is
+     * aggregated into one grey "Others" slice (home shows only a small indication —
+     * details belong to Analytics).
+     */
+    fun toDisplaySlices(slices: List<Slice>, maxSlices: Int = 4): List<Slice> {
+        if (slices.size <= maxSlices) return slices
+        val head = slices.take(maxSlices)
+        val rest = slices.drop(maxSlices)
+        return head + Slice(
+            categoryKey = "others",
+            label = OTHERS_LABEL,
+            colorToken = OTHERS_TOKEN,
+            amountPaise = rest.sumOf { it.amountPaise },
+            fraction = rest.sumOf { it.fraction.toDouble() }.toFloat(),
+        )
     }
 }

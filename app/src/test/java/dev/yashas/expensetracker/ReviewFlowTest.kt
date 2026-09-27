@@ -132,4 +132,22 @@ class ReviewFlowTest {
         assertEquals("user_swiggy_orders", dev.yashas.expensetracker.data.rules.CategorySeed.slugFor("Swiggy Orders!"))
         assertEquals("user_cafe", dev.yashas.expensetracker.data.rules.CategorySeed.slugFor("  Cafe  "))
     }
+
+    @Test
+    fun displaySlicesAggregateTailIntoGreyOthers() {
+        val mk = { key: String, fraction: Float ->
+            dev.yashas.expensetracker.data.repo.HomeBreakdown.Slice(key, key, "series_cyan", (fraction * 100_000).toLong(), fraction)
+        }
+        val slices = listOf(mk("a", 0.4f), mk("b", 0.25f), mk("c", 0.15f), mk("d", 0.1f), mk("e", 0.06f), mk("f", 0.04f))
+        val display = dev.yashas.expensetracker.data.repo.HomeBreakdown.toDisplaySlices(slices)
+        assertEquals(5, display.size)
+        assertEquals(listOf("a", "b", "c", "d", "others"), display.map { it.categoryKey })
+        val others = display.last()
+        assertEquals("Others", others.label)
+        assertEquals("series_grey", others.colorToken)
+        assertEquals(0.1f, others.fraction, 0.001f)
+        assertEquals(1f, display.sumOf { it.fraction.toDouble() }.toFloat(), 0.001f)
+        // no aggregation needed when within the limit
+        assertEquals(3, dev.yashas.expensetracker.data.repo.HomeBreakdown.toDisplaySlices(slices.take(3)).size)
+    }
 }
