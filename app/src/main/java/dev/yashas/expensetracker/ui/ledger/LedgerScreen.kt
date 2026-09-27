@@ -130,26 +130,47 @@ fun LedgerScreen(
                     )
                 }
             } else {
-                Text(
-                    text = "${state.reviewCount} pending · ${state.reviewGroups.size} ${if (state.reviewGroups.size == 1) "payee" else "payees"}" +
-                        if (state.lastUndoneCount > 0) "" else "",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                )
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                    Text(
+                        text = "${state.reviewCount} Unconfirmed Transactions",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "${state.reviewGroups.size} ${if (state.reviewGroups.size == 1) "payee" else "payees"} · " +
+                            "hold a card and drop it on a tag",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 if (reviewMode) {
                     items(state.reviewGroups, key = { it.key }) { group ->
-                        ReviewGroupCard(
-                            group = group,
-                            onConfirmGroup = { key -> pickerOpen = key },
-                            onQuickConfirm = { categoryKey -> vm.confirmGroup(group, categoryKey) },
+                        // drag-to-tag targets: quick chips + suggestion; "More" opens the picker
+                        val targets = buildList {
+                            group.suggestion?.let {
+                                add(TagTarget(it.categoryKey, it.categoryKey, colorTokenForKey(it.categoryKey, state.categories)))
+                            }
+                            QUICK_CHIPS.forEach { (key, label) ->
+                                if (none { t -> t.key == key }) add(TagTarget(key, label, colorTokenForKey(key, state.categories)))
+                            }
+                            if (size < 5) add(TagTarget("more", "More", "series_grey"))
+                        }
+                        DragToTagCard(
+                            targets = targets,
+                            onDropTarget = { key ->
+                                if (key == "more") pickerOpen = group.key
+                                else vm.confirmGroup(group, key)
+                            },
                             onOpenDetail = {
                                 state.all.firstOrNull { it.id == group.ids.first() }?.let { detailFor = it }
                             },
-                        )
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                        ) {
+                            ReviewGroupCardContent(group = group)
+                        }
                     }
                     items(state.suspectCards, key = { "dup-${it.keepId}-${it.mergeId}" }) { card ->
                         SuspectCardUi(card = card, onKeepBoth = { }, onMerge = { vm.mergeSuspect(card) })
@@ -245,77 +266,52 @@ fun LedgerScreen(
     }
 }
 
-/** R1 group card: payee, N×, total, latest day, suggestion reason, quick chips. */
+/** Color token for a category key: real entity token, else violet for unknown/unsaved. */
+private fun colorTokenForKey(
+    key: String,
+    categories: Map<String, dev.yashas.expensetracker.data.db.entity.CategoryEntity>,
+): String = categories[key]?.colorToken ?: "series_violet"
+
+/** R1 group card CONTENT (avatar, payee, N×, total, latest day) — wrapped by DragToTagCard. */
 @Composable
-private fun ReviewGroupCard(
+private fun ReviewGroupCardContent(
     group: LedgerViewModel.ReviewGroupUi,
-    onConfirmGroup: (groupKey: String) -> Unit,
-    onQuickConfirm: (categoryKey: String) -> Unit,
-    onOpenDetail: () -> Unit,
 ) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp,
-    ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                // initial avatar (consistent with the ledger list, R3)
-                Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.primaryContainer) {
-                    Text(
-                        text = group.displayName.take(1).uppercase(),
-                        modifier = Modifier.padding(8.dp),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = group.displayName + if (group.count > 1) "  ·  ${group.count}×" else "",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = "latest ${group.latestDayLabel}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            // initial avatar (consistent with the ledger list, R3)
+            Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.primaryContainer) {
                 Text(
-                    text = MoneyFormat.formatRupeesWhole(group.totalPaise),
+                    text = group.displayName.take(1).uppercase(),
+                    modifier = Modifier.padding(8.dp),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Bold,
                 )
             }
-            group.suggestion?.let {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = it.reasonText,
-                    style = MaterialTheme.typography.labelMedium,
+                    text = group.displayName + if (group.count > 1) "  ·  ${group.count}×" else "",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "latest ${group.latestDayLabel}",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                val suggested = group.suggestion?.categoryKey
-                if (suggested != null && suggested !in QUICK_CHIPS.map { it.first }) {
-                    AssistChip(onClick = { onQuickConfirm(suggested) }, label = { Text("Confirm: $suggested") })
-                }
-                QUICK_CHIPS.forEach { (key, label) ->
-                    AssistChip(
-                        onClick = { onQuickConfirm(key) },
-                        label = { Text(if (key == suggested) "✓ $label" else label) },
-                    )
-                }
-                TextButton(onClick = { onConfirmGroup(group.key) }) { Text("Other") }
-                TextButton(onClick = onOpenDetail) { Text("Edit") }
-            }
+            Text(
+                text = MoneyFormat.formatRupeesWhole(group.totalPaise),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        group.suggestion?.let {
+            Text(
+                text = it.reasonText,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
