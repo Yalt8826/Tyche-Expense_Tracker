@@ -4,6 +4,7 @@ import dev.yashas.expensetracker.data.db.entity.TransactionEntity
 import dev.yashas.expensetracker.domain.model.MoneyFormat
 import dev.yashas.expensetracker.domain.model.Provenance
 import dev.yashas.expensetracker.domain.model.TxnType
+import dev.yashas.expensetracker.ui.ledger.DragTagMath
 import dev.yashas.expensetracker.ui.ledger.LedgerFilters
 import dev.yashas.expensetracker.ui.ledger.ReviewGrouper
 import org.junit.Assert.assertEquals
@@ -168,5 +169,32 @@ class ReviewFlowTest {
         )
         // food (7,00,000 incl. subcategories) beats transport; zero-spend health sinks alphabetically last
         assertEquals(listOf("shopping", "food", "transport", "health"), order)
+    }
+
+    @Test
+    fun dragTargetsPickNearestWithinForgivingRadius() {
+        val centers = listOf(
+            androidx.compose.ui.geometry.Offset(-100f, -80f),
+            androidx.compose.ui.geometry.Offset(100f, -80f),
+            androidx.compose.ui.geometry.Offset(0f, -140f),
+        )
+        assertEquals(-1, DragTagMath.pickTarget(androidx.compose.ui.geometry.Offset(0f, 0f), centers, 40f))
+        assertEquals(2, DragTagMath.pickTarget(androidx.compose.ui.geometry.Offset(0f, -150f), centers, 40f))
+        assertEquals(0, DragTagMath.pickTarget(androidx.compose.ui.geometry.Offset(-130f, -90f), centers, 40f))
+        // too far from everything → no target
+        assertEquals(-1, DragTagMath.pickTarget(androidx.compose.ui.geometry.Offset(400f, 400f), centers, 40f))
+    }
+
+    @Test
+    fun bubbleCentersSurroundTheCard() {
+        val centers = DragTagMath.bubbleCenters(width = 800f, height = 200f, bubbleRadius = 40f, count = 5)
+        assertEquals(5, centers.size)
+        // two above, one above-center, two below
+        assertEquals(3, centers.count { it.y < 0f })
+        assertEquals(2, centers.count { it.y > 0f })
+        // all sit outside the card's vertical bounds
+        centers.forEach { c ->
+            kotlin.math.abs(c.y).let { y -> org.junit.Assert.assertTrue("bubble inside card: $c", y >= 100f) }
+        }
     }
 }

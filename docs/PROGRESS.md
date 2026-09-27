@@ -2,6 +2,12 @@
 
 Plain-language notes, 3 lines per milestone (newest first).
 
+## 2026-09-28 — Drag-to-tag review flow
+
+1. Review screen rebuilt: bold "83 Unconfirmed Transactions" heading + payee count + hold-hint subtitle; review cards are now drag-to-tag — long-press morphs the card toward a square tile, colored tag bubbles bloom around it (suggestion + quick tags + grey "More" opening the full picker).
+2. Drag the card onto a bubble to tag the whole payee group (enlarging bubble + haptic tick on hover, forgiving 2.2× capture radius, spring-back on miss, UNDO snackbar still works); pure geometry + hit-testing in DragTagMath, unit-tested.
+3. 48 tests green; installed and verified on the A05.
+
 ## 2026-09-27 — Tag chips ordered by spend
 
 1. Home tag chips now sort by spending (top-level tags include subcategory spend; zero-spend tags last, alphabetically) so the chip row mirrors the proportion bar left-to-right.
