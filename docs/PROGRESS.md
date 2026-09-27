@@ -2,6 +2,12 @@
 
 Plain-language notes, 3 lines per milestone (newest first).
 
+## 2026-09-27 — Home redesign (greeting, proportion bar, tags)
+
+1. Home rebuilt per request: greeting + name + avatar (tap to rename, DataStore-backed) at top; review banner moved BELOW the hero; hero amount + "after refunds" label kept.
+2. Tag proportion bar under the hero: thin multi-color divider (segment width = tag share, confirmed expenses only) + legend with display names, percentages and amounts, "Share of confirmed spending" caption and an "N more · x%" aggregate row; tags are color-based, "+ New tag" creates a user_* category with a chosen palette color; existing tags render as a chip row.
+3. On-device verification caught a flow race (slices computed before categories loaded → all-violet legend) — fixed by combining flows; 44 tests green (home slices + slug tests added); verified via UI dump on the A05.
+
 ## 2026-09-27 — Audit fixes R1–R5, R7 implemented
 
 1. Review Inbox rebuilt: payee-grouped cards ("84 pending · 50 payees"), initial avatars, latest-day line, group totals, always-visible quick chips (Food/Transport/Shopping/Bills), category-picker sheet for "Other", batch confirm with UNDO snackbar, and confirm-chips inside the transaction detail sheet.

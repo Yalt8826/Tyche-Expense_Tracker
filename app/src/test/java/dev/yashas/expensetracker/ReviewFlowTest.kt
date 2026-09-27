@@ -105,4 +105,31 @@ class ReviewFlowTest {
         assertEquals("₹77,481", MoneyFormat.formatRupeesWhole(77_481_20L))
         assertEquals("-₹212.43", MoneyFormat.formatPaiseExact(-21_243L))
     }
+
+    // --- Home proportion bar (new widget) ---
+
+    @Test
+    fun homeSlicesSplitConfirmedExpensesByTag() {
+        val rows = listOf(
+            txn(1, "A", 50_000L, 0).copy(categoryKey = "food", provenance = Provenance.AUTO_CONFIRMED),
+            txn(2, "B", 30_000L, 0).copy(categoryKey = "transport", provenance = Provenance.AUTO_CONFIRMED),
+            txn(3, "C", 20_000L, 0).copy(categoryKey = null, provenance = Provenance.AUTO_CONFIRMED),
+            // excluded: review-pending, transfer, income
+            txn(4, "D", 10_000L, 0).copy(categoryKey = "food", provenance = Provenance.AUTO_REVIEW),
+            txn(5, "E", 10_000L, 0).copy(type = TxnType.TRANSFER, categoryKey = "food"),
+            txn(6, "F", 10_000L, 0).copy(type = TxnType.INCOME, categoryKey = "food"),
+        )
+        val slices = dev.yashas.expensetracker.data.repo.HomeBreakdown.slices(rows, emptyMap(), emptyMap())
+        assertEquals(3, slices.size)
+        assertEquals(0.5f, slices[0].fraction, 0.001f)
+        assertEquals("food", slices[0].categoryKey)
+        assertEquals("Untagged", slices[2].label)
+        assertEquals(1f, slices.sumOf { it.fraction.toDouble() }.toFloat(), 0.001f)
+    }
+
+    @Test
+    fun slugForNamespacesUserTags() {
+        assertEquals("user_swiggy_orders", dev.yashas.expensetracker.data.rules.CategorySeed.slugFor("Swiggy Orders!"))
+        assertEquals("user_cafe", dev.yashas.expensetracker.data.rules.CategorySeed.slugFor("  Cafe  "))
+    }
 }

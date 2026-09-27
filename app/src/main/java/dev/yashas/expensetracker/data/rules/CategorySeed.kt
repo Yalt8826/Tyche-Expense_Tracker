@@ -53,4 +53,8 @@ object CategorySeed {
             }
         }
     }
+
+    /** Stable key for user-created tags: "Swiggy Orders!" -> "user_swiggy_orders". */
+    fun slugFor(name: String): String =
+        "user_" + name.trim().lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_')
 }

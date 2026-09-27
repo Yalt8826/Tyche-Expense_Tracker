@@ -43,6 +43,26 @@ class TxnRepository(
         db.transactionDao().updateProvenance(id, provenance)
     }
 
+    /**
+     * User-created tag from Home (color chosen in-app). Keys are namespaced `user_*`
+     * so seeded categories stay stable; duplicate names reuse the existing row.
+     */
+    suspend fun createCategory(name: String, colorToken: String): dev.yashas.expensetracker.data.db.entity.CategoryEntity {
+        val clean = name.trim().take(24)
+        val key = dev.yashas.expensetracker.data.rules.CategorySeed.slugFor(clean)
+        val existing = db.catalogDao().categoryByKey(key)
+        if (existing != null) return existing
+        val entity = dev.yashas.expensetracker.data.db.entity.CategoryEntity(
+            key = key,
+            name = clean,
+            icon = "category",
+            colorToken = colorToken,
+            parentId = null,
+        )
+        db.catalogDao().upsertCategory(entity)
+        return db.catalogDao().categoryByKey(key) ?: entity
+    }
+
     /** Quick-add / manual add (01-SCREENS S7): cash + anything the funnel misses. */
     suspend fun quickAddExpense(
         amountPaise: Long,
