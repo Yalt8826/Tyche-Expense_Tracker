@@ -35,16 +35,23 @@ import dev.yashas.expensetracker.ui.theme.SeriesViolet
 import dev.yashas.expensetracker.ui.theme.SemanticCoral
 import dev.yashas.expensetracker.ui.theme.SemanticGreen
 import dev.yashas.expensetracker.ui.theme.TextSecondary
+import dev.yashas.expensetracker.ui.components.parseHexColor
 
-fun categoryColor(token: String): Color = when (token) {
-    "series_violet" -> SeriesViolet
-    "series_cyan" -> SeriesCyan
-    "series_amber" -> SeriesAmber
-    "series_pink" -> SeriesPink
-    "series_lime" -> SeriesLime
-    "series_blue" -> SeriesBlue
-    "series_grey" -> TextSecondary
-    else -> SeriesViolet
+fun categoryColor(token: String): Color {
+    // User-created tags store real hex values; parse them so every surface picks the color up.
+    if (token != null && token.startsWith("#")) {
+        return parseHexColor(token)
+    }
+    return when (token) {
+        "series_violet" -> SeriesViolet
+        "series_cyan" -> SeriesCyan
+        "series_amber" -> SeriesAmber
+        "series_pink" -> SeriesPink
+        "series_lime" -> SeriesLime
+        "series_blue" -> SeriesBlue
+        "series_grey" -> TextSecondary
+        else -> SeriesViolet
+    }
 }
 
 fun categoryIcon(name: String): ImageVector = when (name) {

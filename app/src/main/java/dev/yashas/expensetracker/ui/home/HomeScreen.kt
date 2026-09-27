@@ -46,7 +46,10 @@ import dev.yashas.expensetracker.ui.components.TxnRow
 import dev.yashas.expensetracker.ui.components.categoryColor
 import java.time.LocalTime
 
-/** Series palette swatches offered for new tags (keeps the app visually coherent). */
+/** Default color for new tags: first honeycomb hue. */
+private val DEFAULT_TAG_COLOR = dev.yashas.expensetracker.ui.components.HEX_CHOICES.first()
+
+/** Series palette swatches (legacy tokens still recognized on old rows). */
 private val TAG_COLORS = listOf(
     "series_violet" to "Violet",
     "series_cyan" to "Cyan",
@@ -147,22 +150,23 @@ fun HomeScreen(
             )
         }
 
-        // --- review banner (below hero, per redesign) ---
-        if (state.reviewCount > 0) {
-            Card(modifier = Modifier.fillMaxWidth(), onClick = onOpenReview) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text(
-                        "${state.reviewCount} ${if (state.reviewCount == 1) "transaction needs" else "transactions need"} your confirmation",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        "Review them to keep your totals honest",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+        // --- twin stat squares: review queue + spending pace (replaces full-width banner) ---
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            StatSquare(
+                modifier = Modifier.weight(1f),
+                onClick = onOpenReview,
+                value = "${state.reviewCount}",
+                label = "to confirm",
+            )
+            StatSquare(
+                modifier = Modifier.weight(1f),
+                onClick = null,
+                value = MoneyFormat.formatRupeesWhole(state.avgDailyPaise),
+                label = "avg / day · proj ${MoneyFormat.formatRupeesWhole(state.projectedPaise)}",
+            )
         }
 
         // --- add-tag row + existing tags ---
@@ -251,6 +255,30 @@ fun HomeScreen(
     }
 }
 
+/** Twin stat square: big number + caption; optional tap. */
+@Composable
+private fun StatSquare(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+) {
+    Card(modifier = modifier, onClick = { onClick?.invoke() }) {
+        Column(modifier = Modifier.padding(vertical = 14.dp, horizontal = 12.dp)) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 /** Multi-color divider: one rounded bar, segment widths = tag fractions. */
 @Composable
 private fun ProportionBar(
@@ -279,7 +307,7 @@ private fun AddTagDialog(
     onDismiss: () -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
-    var color by remember { mutableStateOf(TAG_COLORS.first().first) }
+    var color by remember { mutableStateOf(DEFAULT_TAG_COLOR) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("New tag") },
@@ -292,30 +320,13 @@ private fun AddTagDialog(
                     singleLine = true,
                 )
                 Text("Color", style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    TAG_COLORS.forEach { (token, label) ->
-                        val selected = color == token
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .background(categoryColor(token), CircleShape)
-                                .then(
-                                    if (selected) {
-                                        Modifier.background(
-                                            androidx.compose.ui.graphics.Color.White.copy(alpha = 0.35f),
-                                            CircleShape,
-                                        )
-                                    } else Modifier
-                                )
-                                .clickable { color = token },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (selected) {
-                                Text("✓", style = MaterialTheme.typography.labelLarge, color = androidx.compose.ui.graphics.Color(0xFF0E0E13))
-                            }
-                        }
-                    }
-                }
+                dev.yashas.expensetracker.ui.components.HexColorPicker(
+                    selected = color,
+                    onSelected = { color = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(170.dp),
+                )
             }
         },
         confirmButton = {
