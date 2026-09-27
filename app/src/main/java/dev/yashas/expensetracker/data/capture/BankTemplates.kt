@@ -17,6 +17,14 @@ object BankTemplates {
 
     val SEEDS = listOf(
         Seed(
+            bankId = "KOTAK",
+            senderCodes = listOf("KOTAKB"),
+            fixtures = listOf(
+                "Sent Rs.70.00 from Kotak Bank A/c X4821 to Velvet Juice And on 27-09-26. UPI Ref 698765432109. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud",
+                "Sent Rs.2,000.00 from Kotak Bank A/c X4821 to friend0@okaxis on 26-09-26. UPI Ref 612345678901. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud",
+            ),
+        ),
+        Seed(
             bankId = "HDFC",
             senderCodes = listOf("AD-HDFCBK", "VM-HDFCBK", "HDFCBK"),
             fixtures = listOf(
