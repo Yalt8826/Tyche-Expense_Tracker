@@ -2,6 +2,12 @@
 
 Plain-language notes, 3 lines per milestone (newest first).
 
+## 2026-09-27 — REAL SMS CAPTURE WORKING (Kotak)
+
+1. Yashas's missed transaction diagnosed via adb DB pull: bank is Kotak (AD-/AX-/VM-KOTAKB-S senders) — not in the seeded allowlist, and its "Sent Rs.X … to <Payee> … UPI Ref Y" format needed "sent" as a debit verb + "to" merchant anchor. All fixed + fixture-tested.
+2. Allowlist now contains-matches (DLT prefix variants), account resolution prefers sender over mask, bank seeding is per-bank idempotent, and a debug-only inbox reprocessor back-fills history (adb one-liner; stripped from release).
+3. Result: 83 real transactions over 21 days captured into Review Inbox (91 raw SMS stored, 102 promos/OTPs correctly ignored); live SMS_RECEIVED capture now active for future transactions.
+
 ## 2026-09-26 — Demo data pass + on-device fixes
 
 1. DEBUG-only demo seeder added: 40 days of realistic transactions (13 merchants, salaries, a self-transfer pair, a refund, 2 review items) + sample budgets; deterministic, wipeable via the `demo` tag.

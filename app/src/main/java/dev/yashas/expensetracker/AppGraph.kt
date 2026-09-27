@@ -36,17 +36,19 @@ object AppGraph {
 
     suspend fun seedBanksIfNeeded(context: Context) {
         val db = database(context)
-        if (db.catalogDao().allSenderAllowlists().isNotEmpty()) return
-        // Seed allowlists from the bundled bank set (P3) — rows are real accounts once the
-        // user's first SMS arrives and masks resolve (SmsIngestor.resolveAccount).
+        // per-bank idempotent: installs created before a bank was seeded still get it
+        val existing = db.catalogDao().allSenderAllowlists().joinToString(",").uppercase()
         dev.yashas.expensetracker.data.capture.BankTemplates.SEEDS.forEach { seed ->
-            db.catalogDao().upsertAccount(
-                dev.yashas.expensetracker.data.db.entity.AccountEntity(
-                    bankName = seed.bankId,
-                    last4Mask = "----",
-                    smsSenderAllowlist = seed.senderCodes.joinToString(","),
-                ),
-            )
+            val present = seed.senderCodes.any { existing.contains(it.uppercase()) }
+            if (!present) {
+                db.catalogDao().upsertAccount(
+                    dev.yashas.expensetracker.data.db.entity.AccountEntity(
+                        bankName = seed.bankId,
+                        last4Mask = "----",
+                        smsSenderAllowlist = seed.senderCodes.joinToString(","),
+                    ),
+                )
+            }
         }
     }
 

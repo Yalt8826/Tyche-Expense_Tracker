@@ -36,6 +36,17 @@ class CaptureEngineTest {
     }
 
     @Test
+    fun kotakSentFixtureParsesFully() {
+        val body = "Sent Rs.2,000.00 from Kotak Bank A/c X9624 to rajrishank0@okaxis on 26-09-26. UPI Ref 663561033525. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud"
+        val p = engine.process(body).parsed!!
+        assertEquals(200_000L, p.amountPaise)
+        assertEquals(Direction.DEBIT, p.direction)
+        assertEquals("rajrishank0@okaxis", p.vpa)
+        assertEquals("663561033525", p.utrRef)
+        assertEquals(LocalDate.of(2026, 9, 26).toEpochDay(), p.valueDateEpochDay)
+    }
+
+    @Test
     fun sbiCreditFixtureParsesWithPaise() {
         val body = "Rs 2,500.75 credited on 28-09-26 in A/c XX9876 towards UPI from john@upi. Ref 887654321012"
         val p = engine.process(body).parsed!!

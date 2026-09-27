@@ -34,12 +34,14 @@ class SmsIngestor(
     enum class Outcome { CAPTURED, DUPLICATE_SMS, DUPLICATE_TXN, IGNORED }
 
     suspend fun ingest(sender: String, body: String, deliveryTimestamp: Long): Outcome {
-        // stage 1: allowlist (comma-joined per account row) — BEFORE any persistence
+        // stage 1: allowlist (contains-match — entries are bank codes like KOTAKB or full
+        // DLT headers like AD-HDFCBK; carrier prefix/suffix variants must not cause misses)
         val allowlisted = db.catalogDao().allSenderAllowlists()
             .flatMap { it.split(',') }
             .map { it.trim().uppercase() }
             .filter { it.isNotEmpty() }
-        if (sender.trim().uppercase() !in allowlisted) {
+        val senderKey = sender.trim().uppercase()
+        if (allowlisted.none { senderKey.contains(it) }) {
             return Outcome.IGNORED
         }
 
@@ -122,15 +124,24 @@ class SmsIngestor(
     }
 
     private suspend fun resolveAccount(sender: String, accountMask: String?): AccountEntity {
-        val existing = db.catalogDao().observeAccounts().first().firstOrNull { account ->
-            accountMask == null || account.last4Mask == accountMask || sender.uppercase() in account.smsSenderAllowlist.uppercase().split(",")
+        val s = sender.trim().uppercase()
+        val existing = db.catalogDao().observeAccounts().first()
+        // 1. sender match is authoritative (the bank that sent the SMS owns the account)
+        existing.firstOrNull { account ->
+            account.smsSenderAllowlist.uppercase().split(',')
+                .map { it.trim() }
+                .any { entry -> entry.isNotEmpty() && s.contains(entry) }
+        }?.let { return it }
+        // 2. mask equality (SMS from a bank whose allowlist row isn't seeded yet)
+        if (accountMask != null) {
+            existing.firstOrNull { it.last4Mask == accountMask }?.let { return it }
         }
-        if (existing != null) return existing
+        // 3. create
         val bankId = BankTemplates.bankForSender(sender) ?: "UNKNOWN"
         val entity = AccountEntity(
             bankName = bankId,
             last4Mask = accountMask ?: "----",
-            smsSenderAllowlist = sender.uppercase(),
+            smsSenderAllowlist = s,
         )
         val id = db.catalogDao().upsertAccount(entity)
         return entity.copy(id = if (id == -1L) 0L else id)

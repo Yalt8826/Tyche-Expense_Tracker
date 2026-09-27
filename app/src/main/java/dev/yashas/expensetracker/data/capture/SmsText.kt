@@ -93,13 +93,13 @@ object SmsText {
 
     /** "credit card" is a product noun, not a direction — excluded via lookahead. */
     val DIRECTION_REGEX = Regex(
-        """\b(debited|debit|spent|paid|purchase|credited|credit(?!\s*card)|received|deposit)\b""",
+        """\b(debited|debit|spent|paid|purchase|credited|credit(?!\s*card)|received|deposit|sent)\b""",
         RegexOption.IGNORE_CASE,
     )
 
     fun extractDirection(body: String): Direction? {
         val credit = Regex("""\b(credited|credit(?!\s*card)|received|deposit)\b""", RegexOption.IGNORE_CASE).containsMatchIn(body)
-        val debit = Regex("""\b(debited|debit|spent|paid|purchase)\b""", RegexOption.IGNORE_CASE).containsMatchIn(body)
+        val debit = Regex("""\b(debited|debit|spent|paid|purchase|sent)\b""", RegexOption.IGNORE_CASE).containsMatchIn(body)
         return when {
             debit && !credit -> Direction.DEBIT
             credit && !debit -> Direction.CREDIT
@@ -126,9 +126,9 @@ object SmsText {
         Regex("""\b([a-z0-9._-]{2,}@[a-z]{2,})\b""", RegexOption.IGNORE_CASE)
             .find(body)?.groupValues?.get(1)
 
-    /** Merchant guess: capitalized words right after for/towards/at (bank-SMS convention). */
+    /** Merchant guess: capitalized words right after for/towards/at/to (bank-SMS convention; Kotak uses "to <Payee>"). */
     fun extractMerchant(body: String): String? =
-        Regex("""(?:for|towards|at)\s+([A-Z][A-Za-z0-9&]*(?:\s+[A-Z][A-Za-z0-9&]*)*)""")
+        Regex("""(?:for|towards|at|to)\s+([A-Z][A-Za-z0-9&]*(?:\s+[A-Z][A-Za-z0-9&]*)*)""")
             .find(body)?.groupValues?.get(1)?.trim()
             ?: extractVpa(body)
 }
