@@ -150,4 +150,23 @@ class ReviewFlowTest {
         // no aggregation needed when within the limit
         assertEquals(3, dev.yashas.expensetracker.data.repo.HomeBreakdown.toDisplaySlices(slices.take(3)).size)
     }
+
+    @Test
+    fun chipOrderMirrorsBarIncludingSubcategories() {
+        val mk = { key: String, amount: Long ->
+            dev.yashas.expensetracker.data.repo.HomeBreakdown.Slice(key, key, "series_cyan", amount, 0f)
+        }
+        val slices = listOf(
+            mk("shopping", 19_235_00L),
+            mk("food.groceries", 5_000_00L),
+            mk("food.restaurants", 2_000_00L),
+            mk("transport", 1_000_00L),
+        )
+        val order = dev.yashas.expensetracker.data.repo.HomeBreakdown.chipOrder(
+            slices = slices,
+            topKeys = listOf("food", "transport", "shopping", "health"),
+        )
+        // food (7,00,000 incl. subcategories) beats transport; zero-spend health sinks alphabetically last
+        assertEquals(listOf("shopping", "food", "transport", "health"), order)
+    }
 }

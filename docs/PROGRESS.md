@@ -2,6 +2,11 @@
 
 Plain-language notes, 3 lines per milestone (newest first).
 
+## 2026-09-27 — Tag chips ordered by spend
+
+1. Home tag chips now sort by spending (top-level tags include subcategory spend; zero-spend tags last, alphabetically) so the chip row mirrors the proportion bar left-to-right.
+2. Pure function + test (46 green); installed on the A05.
+
 ## 2026-09-27 — Hex picker + twin stat squares
 
 1. Tag color selection upgraded: custom honeycomb picker (4-5-4, 13 curated hues) drawn on Canvas with hex-geometry tap detection and a white-outlined selection; new tags store real #RRGGBB values that every surface (bar, avatars, chips) renders via the shared color mapper.
