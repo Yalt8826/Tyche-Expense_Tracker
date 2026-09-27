@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -40,6 +41,7 @@ import dev.yashas.expensetracker.data.repo.BudgetMath.State
 import dev.yashas.expensetracker.data.repo.BudgetRepository
 import dev.yashas.expensetracker.domain.model.MoneyFormat
 import dev.yashas.expensetracker.ui.components.categoryColor
+import dev.yashas.expensetracker.ui.components.categoryIcon
 import dev.yashas.expensetracker.ui.theme.SeriesAmber
 import dev.yashas.expensetracker.ui.theme.SemanticCoral
 import dev.yashas.expensetracker.ui.theme.SemanticGreen
@@ -85,7 +87,10 @@ fun BudgetScreen(repo: BudgetRepository, categories: List<dev.yashas.expensetrac
                         )
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                overall?.let { "${(it.spendFraction * 100).toInt()}%" } ?: "—",
+                                // R4: beyond 2× show "Nx of budget" — "388%" reads like a grade
+                                overall?.let {
+                                    if (it.spendFraction >= 2f) "${(it.spendFraction).toInt()}× of budget" else "${(it.spendFraction * 100).toInt()}%"
+                                } ?: "—",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                             )
@@ -103,8 +108,8 @@ fun BudgetScreen(repo: BudgetRepository, categories: List<dev.yashas.expensetrac
                     )
                     Text(
                         overall?.let {
-                            "${MoneyFormat.formatPaise(it.spentPaise)} spent" +
-                                (it.limitPaise?.let { l -> " of ${MoneyFormat.formatPaise(l)} · projected ${MoneyFormat.formatPaise(it.projectedEndPaise)}" } ?: "")
+                            "${MoneyFormat.formatRupeesWhole(it.spentPaise)} spent" +
+                                (it.limitPaise?.let { l -> " of ${MoneyFormat.formatRupeesWhole(l)} · projected ${MoneyFormat.formatRupeesWhole(it.projectedEndPaise)}" } ?: "")
                         } ?: "",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -121,7 +126,23 @@ fun BudgetScreen(repo: BudgetRepository, categories: List<dev.yashas.expensetrac
                 Card(modifier = Modifier.fillMaxWidth(), onClick = { editorFor = cs.categoryKey; editorOpen = true }) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                            Text(cs.categoryKey, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            // R4: display name + icon instead of the raw key
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                val cat = categories.firstOrNull { it.key == cs.categoryKey }
+                                if (cat != null) {
+                                    Icon(
+                                        imageVector = categoryIcon(cat.icon),
+                                        contentDescription = cat.name,
+                                        tint = categoryColor(cat.colorToken),
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                                Text(
+                                    cat?.name ?: cs.categoryKey,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
                             Text(
                                 when (cs.state) {
                                     State.EXCEEDED -> "Over budget"
@@ -136,14 +157,37 @@ fun BudgetScreen(repo: BudgetRepository, categories: List<dev.yashas.expensetrac
                                 style = MaterialTheme.typography.labelMedium,
                             )
                         }
+                        // R4: thin progress bar (color already encodes state; icon+text pair with it)
+                        androidx.compose.foundation.Canvas(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp),
+                        ) {
+                            drawRoundRect(
+                                color = androidx.compose.ui.graphics.Color(0x22FFFFFF),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f),
+                            )
+                            drawRoundRect(
+                                color = when (cs.state) {
+                                    State.EXCEEDED -> SemanticCoral
+                                    State.APPROACHING -> SeriesAmber
+                                    State.HEALTHY -> SemanticGreen
+                                },
+                                size = androidx.compose.ui.geometry.Size(
+                                    width = size.width * cs.fraction.coerceIn(0f, 1f),
+                                    height = size.height,
+                                ),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f),
+                            )
+                        }
                         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                             Text(
-                                MoneyFormat.formatPaise(cs.spentPaise),
+                                MoneyFormat.formatRupeesWhole(cs.spentPaise),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium,
                             )
                             Text(
-                                "of ${MoneyFormat.formatPaise(cs.limitPaise)}",
+                                "of ${MoneyFormat.formatRupeesWhole(cs.limitPaise)}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -152,7 +196,7 @@ fun BudgetScreen(repo: BudgetRepository, categories: List<dev.yashas.expensetrac
                 }
             }
         }
-        item { Spacer(Modifier.height(16.dp)) }
+        item { Spacer(Modifier.height(96.dp)) } // R7: FAB clearance
     }
 
     if (editorOpen) {

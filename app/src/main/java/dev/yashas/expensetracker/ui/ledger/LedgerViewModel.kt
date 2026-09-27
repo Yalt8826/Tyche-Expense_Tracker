@@ -30,15 +30,20 @@ private fun TransactionEntity.toLedgerRow() = LedgerInvariants.Row(
 )
 
 /**
- * Transactions + Review Inbox state (S9/S10/S11). Review Inbox is a FILTERED MODE of
- * the ledger (00-MASTER §7) — same rows, provenance == AUTO_REVIEW — plus derived
- * review cards for duplicate/transfer suspicion.
+ * Transactions + Review Inbox state (S9/S10/S11), post-audit:
+ * - month strip filter (R2)
+ * - Review Inbox grouped by payee, one-tap confirm chips, batch confirm + undo (R1)
  */
 class LedgerViewModel(private val repo: TxnRepository) : ViewModel() {
 
-    data class ReviewCard(
-        val txn: TransactionEntity,
+    data class ReviewGroupUi(
+        val key: String,
+        val displayName: String,
+        val count: Int,
+        val totalPaise: Long,
+        val latestDayLabel: String,
         val suggestion: SuggestionEngine.Suggestion?,
+        val ids: List<Long>,
     )
 
     data class SuspectCard(
@@ -59,18 +64,34 @@ class LedgerViewModel(private val repo: TxnRepository) : ViewModel() {
         val all: List<TransactionEntity> = emptyList(),
         val categories: Map<String, CategoryEntity> = emptyMap(),
         val query: String = "",
-        val reviewCards: List<ReviewCard> = emptyList(),
+        val monthKey: String = LedgerFilters.ALL,
+        val reviewGroups: List<ReviewGroupUi> = emptyList(),
         val suspectCards: List<SuspectCard> = emptyList(),
         val transferCards: List<TransferPairCard> = emptyList(),
+        val lastUndoneCount: Int = 0,
     ) {
-        val reviewCount: Int get() = reviewCards.size
+        val reviewCount: Int get() = reviewGroups.sumOf { it.count }
+
+        val monthOptions: List<LedgerFilters.MonthOption>
+            get() = LedgerFilters.monthOptions(
+                all.mapNotNull { it.valueDate }.distinct().sortedDescending(),
+            )
+
+        val monthFiltered: List<TransactionEntity>
+            get() {
+                val opt = monthOptions.firstOrNull { it.key == monthKey } ?: return all
+                val start = opt.start ?: return all
+                val end = opt.end ?: return all
+                return all.filter { (it.valueDate ?: 0) >= start && (it.valueDate ?: 0) < end }
+            }
 
         val filtered: List<TransactionEntity>
             get() {
+                val base = monthFiltered
                 val q = query.trim()
-                if (q.isEmpty()) return all
+                if (q.isEmpty()) return base
                 val ql = q.lowercase()
-                return all.filter { txn ->
+                return base.filter { txn ->
                     txn.merchantName?.lowercase()?.contains(ql) == true ||
                         txn.vpa?.lowercase()?.contains(ql) == true ||
                         txn.categoryKey?.lowercase()?.contains(ql) == true ||
@@ -83,26 +104,32 @@ class LedgerViewModel(private val repo: TxnRepository) : ViewModel() {
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     private var lastDeleted: TransactionEntity? = null
+    private var lastBatchIds: List<Long>? = null
 
     init {
         viewModelScope.launch {
             repo.observeAll().collect { rows ->
                 val byId = rows.associateBy { it.id }
                 val inbox = rows.filter { it.provenance == Provenance.AUTO_REVIEW }
+                val groups = ReviewGrouper.group(
+                    inbox.map { ReviewGrouper.Item(it, repo.suggestions.suggest("", it.merchantName, it.vpa)) },
+                ).map { g ->
+                    val first = g.items.first()
+                    ReviewGroupUi(
+                        key = g.key,
+                        displayName = g.displayName,
+                        count = g.items.size,
+                        totalPaise = g.totalPaise,
+                        latestDayLabel = LedgerFilters.dayLabel(first.valueDate ?: (first.timestamp / 86_400_000L)),
+                        suggestion = g.suggestion,
+                        ids = g.items.map { it.id },
+                    )
+                }
                 _state.update { s ->
                     s.copy(
                         all = rows,
                         loading = false,
-                        reviewCards = inbox.map { txn ->
-                            ReviewCard(
-                                txn = txn,
-                                suggestion = repo.suggestions.suggest(
-                                    sender = "",
-                                    merchant = txn.merchantName,
-                                    vpa = txn.vpa,
-                                ),
-                            )
-                        },
+                        reviewGroups = groups,
                         suspectCards = LedgerInvariants.duplicateSuspects(inbox.map { it.toLedgerRow() }).mapNotNull { (a, b) ->
                             val first = byId[a] ?: return@mapNotNull null
                             SuspectCard(keepId = a, mergeId = b, amountPaise = first.amountPaise, merchant = first.merchantName)
@@ -124,8 +151,34 @@ class LedgerViewModel(private val repo: TxnRepository) : ViewModel() {
 
     fun setQuery(q: String) = _state.update { it.copy(query = q) }
 
-    fun confirm(txn: TransactionEntity, categoryKey: String, createRule: Boolean) {
-        viewModelScope.launch { repo.confirmReview(txn, categoryKey, createRule) }
+    fun setMonth(key: String) = _state.update { it.copy(monthKey = key) }
+
+    /** Confirm one item. Creates a rule so the whole payee family confirms next time. */
+    fun confirm(id: Long, categoryKey: String) {
+        viewModelScope.launch { repo.confirmById(id, categoryKey, createRule = true) }
+    }
+
+    /** Confirm every item in a group under one category; remembered for undo. */
+    fun confirmGroup(group: ReviewGroupUi, categoryKey: String) {
+        lastBatchIds = group.ids
+        _state.update { it.copy(lastUndoneCount = group.ids.size) }
+        viewModelScope.launch { group.ids.forEach { repo.confirmById(it, categoryKey, createRule = true) } }
+    }
+
+    /** Undo the last batch: rows return to the review queue. */
+    fun undoLastBatch() {
+        val ids = lastBatchIds ?: return
+        viewModelScope.launch {
+            ids.forEach { repo.setProvenance(it, Provenance.AUTO_REVIEW) }
+            lastBatchIds = null
+            _state.update { it.copy(lastUndoneCount = 0) }
+        }
+    }
+
+    /** Snackbar dismissed without undo. */
+    fun dismissUndo() {
+        lastBatchIds = null
+        _state.update { it.copy(lastUndoneCount = 0) }
     }
 
     fun markTransfer(card: TransferPairCard) {
