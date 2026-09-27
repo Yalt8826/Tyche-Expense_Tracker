@@ -111,15 +111,26 @@ fun TxnRow(
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .background(categoryColor(categoryColorToken ?: "").copy(alpha = 0.18f), CircleShape),
+                .background(categoryColor(categoryColorToken ?: "series_violet").copy(alpha = 0.18f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                imageVector = categoryIcon(categoryIconName ?: ""),
-                contentDescription = categoryName,
-                tint = categoryColor(categoryColorToken ?: ""),
-                modifier = Modifier.size(20.dp),
-            )
+            if (categoryIconName != null) {
+                // confirmed row: its category icon
+                Icon(
+                    imageVector = categoryIcon(categoryIconName),
+                    contentDescription = categoryName,
+                    tint = categoryColor(categoryColorToken ?: ""),
+                    modifier = Modifier.size(20.dp),
+                )
+            } else {
+                // unconfirmed row: merchant-initial avatar (UI-AUDIT R3)
+                Text(
+                    text = (txn.merchantName ?: txn.vpa ?: "?").trim().take(1).uppercase(),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = categoryColor(categoryColorToken ?: "series_violet"),
+                )
+            }
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -139,7 +150,7 @@ fun TxnRow(
             }
         }
         Text(
-            text = (if (isPositive) "+" else "") + MoneyFormat.formatPaise(txn.amountPaise),
+            text = (if (isPositive) "+" else "") + MoneyFormat.formatPaiseExact(txn.amountPaise),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             color = amountColor,

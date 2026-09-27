@@ -149,6 +149,9 @@ interface TransactionDao {
     @Query("UPDATE transactions SET provenance = :provenance, categoryKey = :categoryKey WHERE id = :id")
     suspend fun confirmWithCategory(id: Long, provenance: Provenance, categoryKey: String?)
 
+    @Query("UPDATE transactions SET provenance = :provenance WHERE id = :id")
+    suspend fun updateProvenance(id: Long, provenance: Provenance)
+
     @Query("UPDATE transactions SET type = 'TRANSFER', transferGroupId = :groupId WHERE id = :id")
     suspend fun markTransfer(id: Long, groupId: String)
 

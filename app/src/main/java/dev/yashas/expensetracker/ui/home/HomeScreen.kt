@@ -70,12 +70,12 @@ fun HomeScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = MoneyFormat.formatPaise(state.monthNetPaise),
+                text = MoneyFormat.formatRupeesWhole(state.monthNetPaise),
                 style = MaterialTheme.typography.displayMedium,
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                text = "Spent this month",
+                text = "Spent this month · after refunds",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -100,6 +100,6 @@ fun HomeScreen(
                 }
             }
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(96.dp))
     }
 }

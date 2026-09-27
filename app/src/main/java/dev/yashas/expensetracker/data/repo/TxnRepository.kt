@@ -32,6 +32,17 @@ class TxnRepository(
         }
     }
 
+    /** Confirm by id — the review flow works from group snapshots, not live entities. */
+    suspend fun confirmById(id: Long, categoryKey: String, createRule: Boolean) {
+        val txn = db.transactionDao().byId(id) ?: return
+        confirmReview(txn, categoryKey, createRule)
+    }
+
+    /** Undo path for batch review: back to the review queue. */
+    suspend fun setProvenance(id: Long, provenance: Provenance) {
+        db.transactionDao().updateProvenance(id, provenance)
+    }
+
     /** Quick-add / manual add (01-SCREENS S7): cash + anything the funnel misses. */
     suspend fun quickAddExpense(
         amountPaise: Long,

@@ -2,7 +2,13 @@
 
 Plain-language notes, 3 lines per milestone (newest first).
 
-## 2026-09-27 — REAL SMS CAPTURE WORKING (Kotak)
+## 2026-09-27 — Audit fixes R1–R5, R7 implemented
+
+1. Review Inbox rebuilt: payee-grouped cards ("84 pending · 50 payees"), initial avatars, latest-day line, group totals, always-visible quick chips (Food/Transport/Shopping/Bills), category-picker sheet for "Other", batch confirm with UNDO snackbar, and confirm-chips inside the transaction detail sheet.
+2. Transactions: month strip (All/Sep/Aug…), friendly sticky day headers (Today/Yesterday/18 Sep), merchant-initial avatars on unconfirmed rows, exact-paise amounts; Budgets: category names + icons + state-colored progress bars, "4× of budget" instead of "388%"; hero relabeled "after refunds"; FAB clearance padding everywhere.
+3. 42 tests green (5 new for grouping/day-labels/month-options/decimal policy); installed and visually verified on the A05; chip-row overflow fixed with horizontal scroll.
+
+## 2026-09-27 — REAL SMS CAPTURE WORKING (KotAK)
 
 1. Yashas's missed transaction diagnosed via adb DB pull: bank is Kotak (AD-/AX-/VM-KOTAKB-S senders) — not in the seeded allowlist, and its "Sent Rs.X … to <Payee> … UPI Ref Y" format needed "sent" as a debit verb + "to" merchant anchor. All fixed + fixture-tested.
 2. Allowlist now contains-matches (DLT prefix variants), account resolution prefers sender over mask, bank seeding is per-bank idempotent, and a debug-only inbox reprocessor back-fills history (adb one-liner; stripped from release).

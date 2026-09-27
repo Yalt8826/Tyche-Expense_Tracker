@@ -1,7 +1,8 @@
 package dev.yashas.expensetracker.ui.ledger
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,19 +10,25 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -30,6 +37,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,10 +51,16 @@ import dev.yashas.expensetracker.domain.model.Provenance
 import dev.yashas.expensetracker.ui.components.TxnRow
 import java.time.Instant
 import java.time.ZoneId
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.rememberScrollState
+
+/** Default quick-confirm categories on review cards (one tap each, UI-AUDIT R1). */
+private val QUICK_CHIPS = listOf("food" to "Food", "transport" to "Transport", "shopping" to "Shopping", "bills" to "Bills")
 
 /**
  * S9 Transactions list + S10 Review Inbox (filtered mode) + S11 detail sheet.
- * Search = free text over merchant/vpa/category/note; summary bar counts matches.
+ * Post-audit: month strip + sticky-style day headers (R2); review groups with
+ * one-tap batch confirm, quick chips, category picker and undo (R1); FAB padding (R7).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,94 +71,160 @@ fun LedgerScreen(
     val vm: LedgerViewModel = viewModel(factory = LedgerViewModel.factory(repo))
     val state by vm.state.collectAsState()
     var detailFor by remember { mutableStateOf<TransactionEntity?>(null) }
+    var pickerOpen by remember { mutableStateOf<String?>(null) } // group key awaiting category
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // search bar (hidden in review mode — the inbox is about deciding, not searching)
-        if (!reviewMode) {
-            OutlinedTextField(
-                value = state.query,
-                onValueChange = vm::setQuery,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Search merchant, category, note…") },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (state.query.isNotEmpty()) {
-                        IconButton(onClick = { vm.setQuery("") }) { Icon(Icons.Filled.Close, contentDescription = "Clear") }
-                    }
-                },
-                singleLine = true,
-            )
-            if (state.query.isNotBlank()) {
-                Text(
-                    text = "${state.filtered.size} ${if (state.filtered.size == 1) "transaction" else "transactions"} · " +
-                        MoneyFormat.formatPaise(state.filtered.filter { it.type.name == "EXPENSE" }.sumOf { it.amountPaise }),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
-            }
+    // undo snackbar after a batch confirm
+    if (state.lastUndoneCount > 0) {
+        scope.launch {
+            snackbar.showSnackbar(
+                message = "Confirmed ${state.lastUndoneCount} transaction${if (state.lastUndoneCount == 1) "" else "s"}",
+                actionLabel = "UNDO",
+                duration = androidx.compose.material3.SnackbarDuration.Short,
+            ).let { if (it == androidx.compose.material3.SnackbarResult.ActionPerformed) vm.undoLastBatch() }
+            vm.dismissUndo()
         }
+    }
 
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            if (reviewMode) {
-                items(state.reviewCards, key = { it.txn.id }) { card ->
-                    ReviewInboxCard(
-                        card = card,
-                        onConfirm = { key, rule -> vm.confirm(card.txn, key, rule) },
-                        onOpenDetail = { detailFor = card.txn },
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (!reviewMode) {
+                OutlinedTextField(
+                    value = state.query,
+                    onValueChange = vm::setQuery,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    placeholder = { Text("Search merchant, category, note…") },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (state.query.isNotEmpty()) {
+                            IconButton(onClick = { vm.setQuery("") }) { Icon(Icons.Filled.Close, contentDescription = "Clear") }
+                        }
+                    },
+                    singleLine = true,
+                )
+                // month strip (R2)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    state.monthOptions.take(6).forEach { opt ->
+                        FilterChip(
+                            selected = state.monthKey == opt.key,
+                            onClick = { vm.setMonth(opt.key) },
+                            label = { Text(opt.label) },
+                        )
+                    }
+                }
+                if (state.query.isNotBlank()) {
+                    Text(
+                        text = "${state.filtered.size} ${if (state.filtered.size == 1) "transaction" else "transactions"} · " +
+                            MoneyFormat.formatRupeesWhole(state.filtered.filter { it.type.name == "EXPENSE" }.sumOf { it.amountPaise }),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     )
-                }
-                items(state.suspectCards, key = { "dup-${it.keepId}-${it.mergeId}" }) { card ->
-                    SuspectCard(
-                        card = card,
-                        onKeepBoth = { },
-                        onMerge = { vm.mergeSuspect(card) },
-                    )
-                }
-                items(state.transferCards, key = { "xfer-${it.debitId}" }) { card ->
-                    TransferPairCard(card = card, onMarkTransfer = { vm.markTransfer(card) })
-                }
-                if (state.reviewCards.isEmpty() && state.suspectCards.isEmpty() && state.transferCards.isEmpty()) {
-                    item { InboxZeroState() }
                 }
             } else {
-                items(state.filtered, key = { it.id }) { txn ->
-                    val cat = txn.categoryKey?.let { state.categories[it] }
-                    TxnRow(
-                        txn = txn,
-                        categoryName = cat?.name,
-                        categoryIconName = cat?.icon,
-                        categoryColorToken = cat?.colorToken,
-                        onClick = { detailFor = txn },
-                    )
-                }
-                if (state.filtered.isEmpty() && !state.loading) {
-                    item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 96.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Text("Nothing here yet", style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "Transactions appear as your bank SMS arrive — or add one with +",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Text(
+                    text = "${state.reviewCount} pending · ${state.reviewGroups.size} ${if (state.reviewGroups.size == 1) "payee" else "payees"}" +
+                        if (state.lastUndoneCount > 0) "" else "",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                )
+            }
+
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                if (reviewMode) {
+                    items(state.reviewGroups, key = { it.key }) { group ->
+                        ReviewGroupCard(
+                            group = group,
+                            onConfirmGroup = { key -> pickerOpen = key },
+                            onQuickConfirm = { categoryKey -> vm.confirmGroup(group, categoryKey) },
+                            onOpenDetail = {
+                                state.all.firstOrNull { it.id == group.ids.first() }?.let { detailFor = it }
+                            },
+                        )
+                    }
+                    items(state.suspectCards, key = { "dup-${it.keepId}-${it.mergeId}" }) { card ->
+                        SuspectCardUi(card = card, onKeepBoth = { }, onMerge = { vm.mergeSuspect(card) })
+                    }
+                    items(state.transferCards, key = { "xfer-${it.debitId}" }) { card ->
+                        TransferPairCardUi(card = card, onMarkTransfer = { vm.markTransfer(card) })
+                    }
+                    if (state.reviewGroups.isEmpty() && state.suspectCards.isEmpty() && state.transferCards.isEmpty()) {
+                        item { InboxZeroState() }
+                    }
+                } else {
+                    val rows = state.filtered
+                        .sortedByDescending { it.valueDate ?: it.timestamp / 86_400_000L }
+                    var lastDay = -1L
+                    val dayOf: (TransactionEntity) -> Long = { it.valueDate ?: it.timestamp / 86_400_000L }
+                    rows.forEach { txn ->
+                        val d = dayOf(txn)
+                        if (d != lastDay) {
+                            item(key = "h-$d") {
+                                Text(
+                                    text = LedgerFilters.dayLabel(d),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 2.dp),
+                                )
+                            }
+                            lastDay = d
+                        }
+                        item(key = "t-${txn.id}") {
+                            val cat = txn.categoryKey?.let { state.categories[it] }
+                            TxnRow(
+                                txn = txn,
+                                categoryName = cat?.name,
+                                categoryIconName = cat?.icon,
+                                categoryColorToken = cat?.colorToken,
+                                onClick = { detailFor = txn },
                             )
                         }
                     }
+                    if (rows.isEmpty() && !state.loading) {
+                        item {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 96.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text("Nothing here yet", style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    "Transactions appear as your bank SMS arrive — or add one with +",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
                 }
+                item(key = "fab-space") { Spacer(Modifier.height(96.dp)) } // R7: FAB clearance
             }
         }
+
+        SnackbarHost(hostState = snackbar, modifier = Modifier.align(Alignment.BottomCenter))
     }
 
     detailFor?.let { txn ->
         TransactionDetailSheet(
             txn = txn,
             categoryName = txn.categoryKey?.let { state.categories[it]?.name },
+            onQuickConfirm = if (txn.provenance == Provenance.AUTO_REVIEW) {
+                { key ->
+                    vm.confirm(txn.id, key)
+                    detailFor = null
+                }
+            } else null,
             onDelete = {
                 vm.deleteWithUndo(txn.id)
                 detailFor = null
@@ -152,13 +232,25 @@ fun LedgerScreen(
             onDismiss = { detailFor = null },
         )
     }
+
+    pickerOpen?.let { groupKey ->
+        CategoryPickerSheet(
+            categories = state.categories.values.filter { it.parentId == null }.sortedBy { it.name },
+            onPick = { key ->
+                state.reviewGroups.firstOrNull { it.key == groupKey }?.let { vm.confirmGroup(it, key) }
+                pickerOpen = null
+            },
+            onDismiss = { pickerOpen = null },
+        )
+    }
 }
 
-/** S10 review card: parsed txn + suggested category chips + confirm affordance. */
+/** R1 group card: payee, N×, total, latest day, suggestion reason, quick chips. */
 @Composable
-private fun ReviewInboxCard(
-    card: LedgerViewModel.ReviewCard,
-    onConfirm: (categoryKey: String, createRule: Boolean) -> Unit,
+private fun ReviewGroupCard(
+    group: LedgerViewModel.ReviewGroupUi,
+    onConfirmGroup: (groupKey: String) -> Unit,
+    onQuickConfirm: (categoryKey: String) -> Unit,
     onOpenDetail: () -> Unit,
 ) {
     Surface(
@@ -168,54 +260,104 @@ private fun ReviewInboxCard(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp,
-        onClick = onOpenDetail,
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                // initial avatar (consistent with the ledger list, R3)
+                Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.primaryContainer) {
+                    Text(
+                        text = group.displayName.take(1).uppercase(),
+                        modifier = Modifier.padding(8.dp),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = card.txn.merchantName ?: card.txn.vpa ?: "Unknown merchant",
+                        text = group.displayName + if (group.count > 1) "  ·  ${group.count}×" else "",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = "bank capture · needs your confirmation",
+                        text = "latest ${group.latestDayLabel}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Text(
-                    text = MoneyFormat.formatPaise(card.txn.amountPaise),
+                    text = MoneyFormat.formatRupeesWhole(group.totalPaise),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
             }
-            val suggestion = card.suggestion
-            if (suggestion != null) {
+            group.suggestion?.let {
                 Text(
-                    text = suggestion.reasonText,
+                    text = it.reasonText,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val suggestedKey = suggestion?.categoryKey
-                if (suggestedKey != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                val suggested = group.suggestion?.categoryKey
+                if (suggested != null && suggested !in QUICK_CHIPS.map { it.first }) {
+                    AssistChip(onClick = { onQuickConfirm(suggested) }, label = { Text("Confirm: $suggested") })
+                }
+                QUICK_CHIPS.forEach { (key, label) ->
                     AssistChip(
-                        onClick = { onConfirm(suggestedKey, false) },
-                        label = { Text("Confirm: $suggestedKey") },
+                        onClick = { onQuickConfirm(key) },
+                        label = { Text(if (key == suggested) "✓ $label" else label) },
                     )
                 }
-                TextButton(onClick = { onConfirm("other", false) }) { Text("Other") }
+                TextButton(onClick = { onConfirmGroup(group.key) }) { Text("Other") }
                 TextButton(onClick = onOpenDetail) { Text("Edit") }
             }
         }
     }
 }
 
+/** R1 category picker for "Other" — one sheet, whole group confirmed. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategoryPickerSheet(
+    categories: List<dev.yashas.expensetracker.data.db.entity.CategoryEntity>,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+            Text("Confirm as…", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Applies to every transaction of this payee",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(96.dp),
+                modifier = Modifier.height(220.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(categories, key = { it.key }) { cat ->
+                    FilterChip(
+                        selected = false,
+                        onClick = { onPick(cat.key) },
+                        label = { Text(cat.name) },
+                    )
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
 /** S10 special state: possible duplicate — [Keep both] [Merge]. */
 @Composable
-private fun SuspectCard(
+private fun SuspectCardUi(
     card: LedgerViewModel.SuspectCard,
     onKeepBoth: () -> Unit,
     onMerge: () -> Unit,
@@ -243,7 +385,7 @@ private fun SuspectCard(
 
 /** S10 special state: possible transfer — both legs, one tap to mark. */
 @Composable
-private fun TransferPairCard(
+private fun TransferPairCardUi(
     card: LedgerViewModel.TransferPairCard,
     onMarkTransfer: () -> Unit,
 ) {
@@ -285,19 +427,20 @@ private fun InboxZeroState() {
     }
 }
 
-/** S11 detail sheet: plain-facts explainability + raw source (trust affordances). */
+/** S11 detail sheet: plain-facts explainability + optional quick-confirm + delete. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TransactionDetailSheet(
     txn: TransactionEntity,
     categoryName: String?,
+    onQuickConfirm: ((String) -> Unit)?,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
             Text(
-                text = MoneyFormat.formatPaise(txn.amountPaise),
+                text = MoneyFormat.formatPaiseExact(txn.amountPaise),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
             )
@@ -313,15 +456,24 @@ private fun TransactionDetailSheet(
                 "Date",
                 Instant.ofEpochMilli(txn.timestamp).atZone(ZoneId.systemDefault()).toLocalDate().toString(),
             )
-            if (txn.type == TxnType_TRANSFER()) DetailLine("Transfer", "Excluded from spending")
+            if (txn.type == dev.yashas.expensetracker.domain.model.TxnType.TRANSFER) {
+                DetailLine("Transfer", "Excluded from spending")
+            }
             DetailLine("Why this category?", if (txn.categoryKey == null) "You haven't tagged it yet" else "Matched your categories")
+            if (onQuickConfirm != null) {
+                Spacer(Modifier.height(6.dp))
+                Text("Confirm as…", style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    QUICK_CHIPS.forEach { (key, label) ->
+                        AssistChip(onClick = { onQuickConfirm(key) }, label = { Text(label) })
+                    }
+                }
+            }
             TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             Spacer(Modifier.height(24.dp))
         }
     }
 }
-
-private fun TxnType_TRANSFER() = dev.yashas.expensetracker.domain.model.TxnType.TRANSFER
 
 @Composable
 private fun DetailLine(label: String, value: String) {
