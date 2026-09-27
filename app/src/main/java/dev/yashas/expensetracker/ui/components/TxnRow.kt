@@ -43,6 +43,7 @@ fun categoryColor(token: String): Color = when (token) {
     "series_pink" -> SeriesPink
     "series_lime" -> SeriesLime
     "series_blue" -> SeriesBlue
+    "series_grey" -> TextSecondary
     else -> SeriesViolet
 }
 

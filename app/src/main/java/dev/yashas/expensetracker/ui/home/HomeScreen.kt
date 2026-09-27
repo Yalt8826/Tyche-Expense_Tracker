@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import dev.yashas.expensetracker.data.repo.HomeBreakdown
 import dev.yashas.expensetracker.data.repo.TxnRepository
 import dev.yashas.expensetracker.data.repo.UserPrefs
 import dev.yashas.expensetracker.domain.model.MoneyFormat
@@ -136,59 +137,14 @@ fun HomeScreen(
             )
         }
 
-        // --- tag proportion bar: multi-color divider + legend ---
+        // --- tag proportion bar: one thin multi-color divider, no legend (details → Analytics) ---
         if (state.slices.isNotEmpty()) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ProportionBar(slices = state.slices, modifier = Modifier.fillMaxWidth().height(8.dp))
-                Text(
-                    text = "Share of confirmed spending",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                // legend: top 4 + aggregate "others" so shares visibly sum to 100%
-                val shown = state.slices.take(4)
-                shown.forEach { slice ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .background(categoryColor(slice.colorToken), CircleShape),
-                        )
-                        Text(
-                            text = "  ${slice.label} · ${(slice.fraction * 100).toInt()}%",
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = MoneyFormat.formatPaise(slice.amountPaise),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
-                val rest = state.slices.drop(4)
-                if (rest.isNotEmpty()) {
-                    val restAmount = rest.sumOf { it.amountPaise }
-                    val restFraction = rest.sumOf { it.fraction.toDouble() }.toFloat()
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .background(MaterialTheme.colorScheme.onSurfaceVariant, CircleShape),
-                        )
-                        Text(
-                            text = "  ${rest.size} more · ${(restFraction * 100).toInt()}%",
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(text = MoneyFormat.formatPaise(restAmount), style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
+            ProportionBar(
+                slices = HomeBreakdown.toDisplaySlices(state.slices),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp),
+            )
         }
 
         // --- review banner (below hero, per redesign) ---
