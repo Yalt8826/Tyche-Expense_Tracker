@@ -10,6 +10,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
@@ -166,7 +167,7 @@ internal fun buzz(context: Context, millis: Long) {
     }
 }
 
-private const val CIRCLE_DP = 150
+private const val CIRCLE_DP = 110
 private const val BUBBLE_R_DP = 26
 
 /**
@@ -369,26 +370,35 @@ fun DragToTagCard(
                             }
                             .size(CIRCLE_DP.dp),
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shadowElevation = 24.dp,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f),
+                        shadowElevation = 12.dp,
                     ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
+                        // glass border to match the tag bubbles: violet ring around the circle
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(5.dp)
+                                .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Text(
-                                text = initial,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            )
-                            Text(
-                                text = amountText,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                textAlign = TextAlign.Center,
-                            )
+                            Column(
+                                modifier = Modifier.padding(10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                            ) {
+                                Text(
+                                    text = initial,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                                Text(
+                                    text = amountText,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
                         }
                     }
                 }
