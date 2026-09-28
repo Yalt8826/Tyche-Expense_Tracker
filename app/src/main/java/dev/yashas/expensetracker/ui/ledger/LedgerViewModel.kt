@@ -64,7 +64,10 @@ class LedgerViewModel(private val repo: TxnRepository) : ViewModel() {
         val all: List<TransactionEntity> = emptyList(),
         val categories: Map<String, CategoryEntity> = emptyMap(),
         val query: String = "",
-        val monthKey: String = LedgerFilters.ALL,
+        val periodKey: String = LedgerFilters.THIS_MONTH,
+        /** Custom From/To (epochDay, end-exclusive) set from the calendar picker. */
+        val customFrom: Long? = null,
+        val customTo: Long? = null,
         val reviewGroups: List<ReviewGroupUi> = emptyList(),
         val suspectCards: List<SuspectCard> = emptyList(),
         val transferCards: List<TransferPairCard> = emptyList(),
@@ -72,22 +75,32 @@ class LedgerViewModel(private val repo: TxnRepository) : ViewModel() {
     ) {
         val reviewCount: Int get() = reviewGroups.sumOf { it.count }
 
-        val monthOptions: List<LedgerFilters.MonthOption>
-            get() = LedgerFilters.monthOptions(
-                all.mapNotNull { it.valueDate }.distinct().sortedDescending(),
-            )
+        val presetOptions: List<LedgerFilters.MonthOption> get() = LedgerFilters.presetOptions()
 
-        val monthFiltered: List<TransactionEntity>
+        /** Bounds for the active selection: presets use their fixed window; RANGE uses custom. */
+        val activeBounds: Pair<Long, Long>?
+            get() = when (periodKey) {
+                LedgerFilters.RANGE -> {
+                    val f = customFrom
+                    val t = customTo
+                    if (f != null && t != null && t > f) f to t else null
+                }
+                else -> presetOptions.firstOrNull { it.key == periodKey }?.let { opt ->
+                    val s = opt.start
+                    val e = opt.end
+                    if (s != null && e != null) s to e else null
+                }
+            }
+
+        val periodFiltered: List<TransactionEntity>
             get() {
-                val opt = monthOptions.firstOrNull { it.key == monthKey } ?: return all
-                val start = opt.start ?: return all
-                val end = opt.end ?: return all
+                val (start, end) = activeBounds ?: return all
                 return all.filter { (it.valueDate ?: 0) >= start && (it.valueDate ?: 0) < end }
             }
 
         val filtered: List<TransactionEntity>
             get() {
-                val base = monthFiltered
+                val base = periodFiltered
                 val q = query.trim()
                 if (q.isEmpty()) return base
                 val ql = q.lowercase()
@@ -151,7 +164,27 @@ class LedgerViewModel(private val repo: TxnRepository) : ViewModel() {
 
     fun setQuery(q: String) = _state.update { it.copy(query = q) }
 
-    fun setMonth(key: String) = _state.update { it.copy(monthKey = key) }
+    fun setPeriod(key: String) = _state.update { it.copy(periodKey = key, customFrom = null, customTo = null) }
+
+    /** Custom From/To from the calendar picker (end-exclusive), switches to RANGE mode. */
+    fun setCustomRange(fromEpochDay: Long, toEpochDay: Long) {
+        if (toEpochDay > fromEpochDay) {
+            _state.update { it.copy(periodKey = LedgerFilters.RANGE, customFrom = fromEpochDay, customTo = toEpochDay) }
+        }
+    }
+
+    /** Label for the active selection, shown next to the calendar button. */
+    fun activeRangeLabel(): String {
+        val s = state.value
+        return when (s.periodKey) {
+            LedgerFilters.RANGE -> {
+                val f = s.customFrom
+                val t = s.customTo
+                if (f != null && t != null) LedgerFilters.rangeLabel(f, t) else "Custom range"
+            }
+            else -> s.presetOptions.firstOrNull { it.key == s.periodKey }?.label ?: ""
+        }
+    }
 
     /** Confirm one item. Creates a rule so the whole payee family confirms next time. */
     fun confirm(id: Long, categoryKey: String) {

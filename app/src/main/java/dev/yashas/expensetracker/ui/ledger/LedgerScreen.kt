@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -17,7 +18,11 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DateRangePicker
+import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -72,6 +77,7 @@ fun LedgerScreen(
     val state by vm.state.collectAsState()
     var detailFor by remember { mutableStateOf<TransactionEntity?>(null) }
     var pickerOpen by remember { mutableStateOf<String?>(null) } // group key awaiting category
+    var showDatePicker by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -90,6 +96,13 @@ fun LedgerScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             if (!reviewMode) {
+                // header
+                Text(
+                    text = "Transactions",
+                    modifier = Modifier.padding(start = 16.dp, top = 12.dp),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
                 OutlinedTextField(
                     value = state.query,
                     onValueChange = vm::setQuery,
@@ -105,20 +118,44 @@ fun LedgerScreen(
                     },
                     singleLine = true,
                 )
-                // month strip (R2)
+                // period chips (This week / This month / Last month / All) + calendar range picker
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    state.monthOptions.take(6).forEach { opt ->
+                    state.presetOptions.forEach { opt ->
                         FilterChip(
-                            selected = state.monthKey == opt.key,
-                            onClick = { vm.setMonth(opt.key) },
+                            selected = state.periodKey == opt.key,
+                            onClick = { vm.setPeriod(opt.key) },
                             label = { Text(opt.label) },
                         )
                     }
+                    // calendar button for custom From/To
+                    FilterChip(
+                        selected = state.periodKey == LedgerFilters.RANGE,
+                        onClick = { showDatePicker = true },
+                        label = {
+                            Text(
+                                text = if (state.periodKey == LedgerFilters.RANGE) {
+                                    val f = state.customFrom
+                                    val t = state.customTo
+                                    if (f != null && t != null) LedgerFilters.rangeLabel(f, t) else "Pick dates"
+                                } else {
+                                    "📅"
+                                },
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Filled.DateRange,
+                                contentDescription = "Pick date range",
+                                modifier = Modifier.size(18.dp),
+                            )
+                        },
+                    )
                 }
                 if (state.query.isNotBlank()) {
                     Text(
@@ -251,6 +288,42 @@ fun LedgerScreen(
         }
 
         SnackbarHost(hostState = snackbar, modifier = Modifier.align(Alignment.BottomCenter))
+    }
+
+    if (showDatePicker) {
+        val dateRangePickerState = rememberDateRangePickerState(
+            initialSelectedStartDateMillis = state.customFrom?.times(86_400_000L),
+            initialSelectedEndDateMillis = state.customTo?.minus(1)?.times(86_400_000L),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val startMillis = dateRangePickerState.selectedStartDateMillis
+                        val endMillis = dateRangePickerState.selectedEndDateMillis
+                        if (startMillis != null && endMillis != null) {
+                            // millis → epochDay; +1 on end so the picked day is included (end-exclusive bounds)
+                            val from = startMillis / 86_400_000L
+                            val to = endMillis / 86_400_000L + 1
+                            vm.setCustomRange(from, to)
+                        }
+                        showDatePicker = false
+                    },
+                ) { Text("Apply") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            },
+        ) {
+            DateRangePicker(
+                state = dateRangePickerState,
+                headline = null,
+                title = null,
+                showModeToggle = false,
+                modifier = Modifier.fillMaxWidth().weight(1f),
+            )
+        }
     }
 
     detailFor?.let { txn ->
