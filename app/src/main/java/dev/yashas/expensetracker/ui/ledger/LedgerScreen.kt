@@ -160,6 +160,8 @@ fun LedgerScreen(
                         }
                         DragToTagCard(
                             targets = targets,
+                            amountText = MoneyFormat.formatRupeesWhole(group.totalPaise),
+                            initial = group.displayName.take(1).uppercase(),
                             onDropTarget = { key ->
                                 if (key == "more") pickerOpen = group.key
                                 else vm.confirmGroup(group, key)
