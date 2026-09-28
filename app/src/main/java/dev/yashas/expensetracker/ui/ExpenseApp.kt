@@ -1,5 +1,9 @@
 package dev.yashas.expensetracker.ui
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -83,6 +87,28 @@ fun ExpenseApp(
             navController = navController,
             startDestination = Destination.HOME.route,
             modifier = Modifier.padding(innerPadding),
+            // Review screen slides up from the bottom on enter, slides back down on exit
+            // (350ms expressive tier, 03-ANIMATION). Other routes keep the default fade.
+            enterTransition = {
+                if (targetState.destination.route == TRANSACTIONS_REVIEW_ROUTE) {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Up,
+                        animationSpec = tween(350),
+                    )
+                } else {
+                    fadeIn(tween(220))
+                }
+            },
+            popExitTransition = {
+                if (initialState.destination.route == TRANSACTIONS_REVIEW_ROUTE) {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Down,
+                        animationSpec = tween(350),
+                    )
+                } else {
+                    fadeOut(tween(220))
+                }
+            },
         ) {
             composable(Destination.HOME.route) {
                 HomeScreen(
