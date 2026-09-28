@@ -7,6 +7,8 @@
     -->
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
+    <!-- Needed for the drag-to-tag Vibrator feedback (normal permission, auto-granted). -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:allowBackup="true"
