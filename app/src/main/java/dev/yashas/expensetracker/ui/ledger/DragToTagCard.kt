@@ -329,15 +329,24 @@ fun DragToTagCard(
                             },
                         ) {
                             Canvas(modifier = Modifier.size(d)) {
+                                // glass style: translucent fill + tag-color border (per Yashas)
                                 drawCircle(
-                                    color = categoryColor(t.colorToken)
-                                        .copy(alpha = (if (isHover) 1f else 0.92f) * pop.coerceIn(0f, 1f)),
+                                    color = categoryColor(t.colorToken).copy(alpha = 0.22f * pop.coerceIn(0f, 1f)),
+                                )
+                                drawCircle(
+                                    color = categoryColor(t.colorToken),
+                                    radius = size.minDimension / 2f - 1.5.dp.toPx(),
+                                    style = Stroke(width = if (isHover) 4.dp.toPx() else 2.5.dp.toPx()),
                                 )
                                 if (isHover) {
+                                    // hover: fill solidifies + white inner ring
+                                    drawCircle(
+                                        color = categoryColor(t.colorToken).copy(alpha = 0.55f),
+                                    )
                                     drawCircle(
                                         color = Color.White,
-                                        radius = size.minDimension / 2f * 0.5f,
-                                        style = Stroke(width = 3.dp.toPx()),
+                                        radius = size.minDimension / 2f * 0.45f,
+                                        style = Stroke(width = 2.5.dp.toPx()),
                                     )
                                 }
                             }
