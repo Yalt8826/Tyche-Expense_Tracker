@@ -83,19 +83,30 @@ class ReviewFlowTest {
     }
 
     @Test
-    fun monthOptionsAreAllThenNewestMonths() {
-        val days = listOf(
-            LocalDate.of(2026, 9, 1).toEpochDay(),
-            LocalDate.of(2026, 9, 20).toEpochDay(),
-            LocalDate.of(2026, 8, 15).toEpochDay(),
-        )
-        val opts = LedgerFilters.monthOptions(days)
-        assertEquals(3, opts.size)
+    fun presetOptionsMatchRequestedPeriods() {
+        // Fixed "today" so the week/month windows are deterministic (2026-09-23 = Wednesday)
+        val today = LocalDate.of(2026, 9, 23)
+        val opts = LedgerFilters.presetOptions(today)
+        assertEquals(4, opts.size)
         assertEquals(LedgerFilters.ALL, opts[0].key)
-        assertEquals("Sep 2026", opts[1].label)
-        assertEquals(LocalDate.of(2026, 9, 1).toEpochDay(), opts[1].start)
-        assertEquals(LocalDate.of(2026, 10, 1).toEpochDay(), opts[1].end)
-        assertEquals("Aug 2026", opts[2].label)
+        val thisWeek = opts.first { it.key == LedgerFilters.THIS_WEEK }
+        // Monday of that week
+        assertEquals(LocalDate.of(2026, 9, 21).toEpochDay(), thisWeek.start)
+        assertEquals(LocalDate.of(2026, 9, 28).toEpochDay(), thisWeek.end)
+        val thisMonth = opts.first { it.key == LedgerFilters.THIS_MONTH }
+        assertEquals(LocalDate.of(2026, 9, 1).toEpochDay(), thisMonth.start)
+        assertEquals(LocalDate.of(2026, 10, 1).toEpochDay(), thisMonth.end)
+        val lastMonth = opts.first { it.key == LedgerFilters.LAST_MONTH }
+        assertEquals(LocalDate.of(2026, 8, 1).toEpochDay(), lastMonth.start)
+        assertEquals(LocalDate.of(2026, 9, 1).toEpochDay(), lastMonth.end)
+    }
+
+    @Test
+    fun rangeLabelFormatsInclusiveEnd() {
+        val today = LocalDate.of(2026, 9, 27)
+        val from = LocalDate.of(2026, 9, 12).toEpochDay()
+        val toEx = LocalDate.of(2026, 9, 27).toEpochDay() // end-exclusive, so label shows 26 Sep
+        assertEquals("12 Sep – 26 Sep", LedgerFilters.rangeLabel(from, toEx, today))
     }
 
     @Test
