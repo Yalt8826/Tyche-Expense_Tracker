@@ -2,6 +2,12 @@
 
 Plain-language notes, 3 lines per milestone (newest first).
 
+## 2026-09-28 — Drag-to-tag v2: circle overlay + real haptics
+
+1. On-device feedback drove a rework: dragged card now lifts into a screen-level Popup as a 150dp CIRCLE (payee initial + amount) with a scrim dimming the list; tag bubbles orbit it ABOVE everything (z-order fixed), grey "More" opens the picker.
+2. Real Vibrator haptics replace Compose's silent TextHandleMove: 20ms on lift, 18ms on bubble hover, 45ms on drop; popup-drag keeps hover detection after the gesture hand-off.
+3. 48 tests green; installed on the A05.
+
 ## 2026-09-28 — Drag-to-tag review flow
 
 1. Review screen rebuilt: bold "83 Unconfirmed Transactions" heading + payee count + hold-hint subtitle; review cards are now drag-to-tag — long-press morphs the card toward a square tile, colored tag bubbles bloom around it (suggestion + quick tags + grey "More" opening the full picker).
