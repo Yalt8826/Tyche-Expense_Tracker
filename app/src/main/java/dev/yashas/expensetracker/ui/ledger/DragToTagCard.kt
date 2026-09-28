@@ -49,7 +49,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import dev.yashas.expensetracker.ui.components.categoryColor
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /** One drop target orbiting the card during drag-to-tag. */
 data class TagTarget(
@@ -104,6 +106,43 @@ object DragTagMath {
         }
         return best
     }
+
+    /**
+     * Bubble centers ORBITING a circle: [count] bubbles evenly spread around it at a
+     * fixed radius (circle radius + bubble radius + gap), starting above and fanning
+     * out. Because they orbit the circle, they follow it wherever it is dragged.
+     */
+    fun orbitOffsets(bubbleRadius: Float, circleRadius: Float, count: Int = 5): List<Offset> {
+        val orbit = circleRadius + bubbleRadius + 14f
+        val baseAngles = listOf(-90.0, -150.0, -30.0, 150.0, 30.0)
+        val angles = if (count == baseAngles.size) baseAngles else List(count) { i -> -90.0 + 360.0 * i / count }
+        return angles.take(count).map { deg ->
+            val rad = Math.toRadians(deg)
+            Offset(
+                x = (orbit * cos(rad)).toFloat(),
+                y = (orbit * sin(rad)).toFloat(),
+            )
+        }
+    }
+
+    /**
+     * Keep the dragged circle (plus its orbiting bubbles) on-screen: the center is
+     * clamped so circle AND bubbles stay within [screen] with room for labels.
+     */
+    fun clampCircleCenter(
+        center: Offset,
+        screen: IntSize,
+        circleRadius: Float,
+        bubbleRadius: Float,
+    ): Offset {
+        val margin = circleRadius + bubbleRadius * 2f + 60f
+        val maxX = (screen.width - margin).coerceAtLeast(margin)
+        val maxY = (screen.height - margin).coerceAtLeast(margin)
+        return Offset(
+            x = center.x.coerceIn(margin, maxX),
+            y = center.y.coerceIn(margin, maxY),
+        )
+    }
 }
 
 /** Short vibration via the platform Vibrator (Compose TextHandleMove is too subtle). */
@@ -145,6 +184,7 @@ fun DragToTagCard(
 
     var restingSize by remember { mutableStateOf(IntSize.Zero) }
     var originTopLeft by remember { mutableStateOf(Offset.Zero) }
+    var boxSize by remember { mutableStateOf(IntSize.Zero) }
     var dragging by remember { mutableStateOf(false) }
     /** Circle-center delta from its origin position. */
     var finger by remember { mutableStateOf(Offset.Zero) }
@@ -212,21 +252,32 @@ fun DragToTagCard(
         }
 
         if (dragging) {
-            // screen-level overlay: scrim + orbiting bubbles + dragged circle
+            // screen-level overlay: scrim + circle + bubbles that ORBIT the circle
             Popup(
                 alignment = Alignment.TopStart,
                 properties = PopupProperties(focusable = false, clippingEnabled = false),
             ) {
-                Box(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier
+                    .fillMaxSize()
+                    .onSizeChanged { boxSize = it }) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(Color.Black.copy(alpha = scrim.value)),
                     )
 
-                    val centers = bubbleCentersScreen()
+                    val screen = boxSize
+                    val rawCenter = circleCenter()
+                    val center = DragTagMath.clampCircleCenter(
+                        center = rawCenter,
+                        screen = screen,
+                        circleRadius = circlePx / 2f,
+                        bubbleRadius = bubbleR,
+                    )
+                    // orbit offsets are computed from the CLAMPED circle's radius
+                    val orbit = DragTagMath.orbitOffsets(bubbleR, circlePx / 2f, targets.size)
                     targets.forEachIndexed { i, t ->
-                        val c = centers[i]
+                        val c = center + orbit[i]
                         val isHover = hovered == i
                         val d = with(density) { (bubbleR * 2).toDp() }
                         Column(
@@ -254,7 +305,7 @@ fun DragToTagCard(
                         }
                     }
 
-                    val circleTopLeft = circleCenter() - Offset(circlePx / 2f, circlePx / 2f)
+                    val circleTopLeft = center - Offset(circlePx / 2f, circlePx / 2f)
                     Surface(
                         modifier = Modifier
                             .offset {
@@ -267,9 +318,7 @@ fun DragToTagCard(
                                     onDrag = { change, amount ->
                                         change.consume()
                                         finger += amount
-                                        val rel = targets.indices.map { i ->
-                                            circleCenter() - centers.getOrElse(i) { Offset.Zero }
-                                        }
+                                        val rel = orbit.map { o -> center + o }
                                         val h = DragTagMath.pickTarget(Offset.Zero, rel, bubbleR)
                                         if (h != hovered) {
                                             hovered = h
