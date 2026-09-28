@@ -93,7 +93,7 @@ fun ExpenseApp(
                 if (targetState.destination.route == TRANSACTIONS_REVIEW_ROUTE) {
                     slideIntoContainer(
                         towards = AnimatedContentTransitionScope.SlideDirection.Up,
-                        animationSpec = tween(350),
+                        animationSpec = tween(450, easing = androidx.compose.animation.core.FastOutSlowInEasing),
                     )
                 } else {
                     fadeIn(tween(220))
@@ -103,7 +103,7 @@ fun ExpenseApp(
                 if (initialState.destination.route == TRANSACTIONS_REVIEW_ROUTE) {
                     slideOutOfContainer(
                         towards = AnimatedContentTransitionScope.SlideDirection.Down,
-                        animationSpec = tween(350),
+                        animationSpec = tween(450, easing = androidx.compose.animation.core.FastOutSlowInEasing),
                     )
                 } else {
                     fadeOut(tween(220))
