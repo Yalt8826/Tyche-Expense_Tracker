@@ -172,38 +172,66 @@ class ReviewFlowTest {
     }
 
     @Test
-    fun orbitOffsetsSurroundCircleEvenly() {
-        val orbit = DragTagMath.orbitOffsets(bubbleRadius = 40f, circleRadius = 75f, count = 5)
-        assertEquals(5, orbit.size)
-        // all bubbles farther than circle radius + bubble radius - gap tolerance
-        orbit.forEach { o ->
-            val dist = o.getDistance()
-            org.junit.Assert.assertTrue("orbit too close: $dist", dist >= 75f + 40f)
+    fun ringOffsetsSurroundTheAnchorEvenly() {
+        val r = DragTagMath.ringRadius(circleRadius = 75f, bubbleRadius = 40f)
+        val ring = DragTagMath.ringOffsets(count = 5, ringRadius = r)
+        assertEquals(5, ring.size)
+        // every bubble sits clear of the dragged circle's edge
+        ring.forEach { o ->
+            assertEquals("ring radius", r, o.getDistance(), 0.5f)
+            org.junit.Assert.assertTrue("bubble overlaps circle", o.getDistance() > 75f + 40f)
         }
-        // first bubble is above the circle (angle -90°)
-        org.junit.Assert.assertTrue(orbit.first().y < -100f)
+        // first bubble is straight above the anchor, and they are evenly spread
+        assertEquals(0f, ring.first().x, 0.5f)
+        org.junit.Assert.assertTrue(ring.first().y < 0f)
+        val angles = ring.map { Math.toDegrees(kotlin.math.atan2(it.y, it.x).toDouble()) }
+        assertEquals(5, angles.distinct().size)
     }
 
     @Test
-    fun clampCircleCenterKeepsCircleAndBubblesOnScreen() {
+    fun ringAnchorIsNudgedSoEveryBubbleFitsOnScreen() {
+        val screen = androidx.compose.ui.unit.IntSize(1080, 2400)
+        val r = DragTagMath.ringRadius(circleRadius = 75f, bubbleRadius = 40f)
+        val margin = r + 40f + 28f
+        // grabbed near the top-left corner → pushed in far enough for the whole ring
+        val a = DragTagMath.clampRingAnchor(
+            anchor = androidx.compose.ui.geometry.Offset(10f, 20f),
+            screen = screen,
+            ringRadius = r,
+            bubbleRadius = 40f,
+            labelPad = 28f,
+        )
+        assertEquals(margin, a.x, 0.01f)
+        assertEquals(margin, a.y, 0.01f)
+        DragTagMath.ringOffsets(5, r).forEach { o ->
+            val c = a + o
+            org.junit.Assert.assertTrue("bubble off-screen: $c", c.x >= 0f && c.y >= 0f)
+            org.junit.Assert.assertTrue("bubble off-screen: $c", c.x <= screen.width && c.y <= screen.height)
+        }
+        // a comfortable grab is left exactly where the finger was
+        val mid = androidx.compose.ui.geometry.Offset(540f, 1200f)
+        assertEquals(mid, DragTagMath.clampRingAnchor(mid, screen, r, 40f, 28f))
+    }
+
+    @Test
+    fun clampCircleCenterKeepsTheCircleOnScreen() {
         val screen = androidx.compose.ui.unit.IntSize(1080, 2400)
         val c = DragTagMath.clampCircleCenter(
             center = androidx.compose.ui.geometry.Offset(-500f, -800f),
             screen = screen,
             circleRadius = 75f,
-            bubbleRadius = 40f,
         )
-        // clamped inside margins, never negative
-        org.junit.Assert.assertTrue(c.x >= 75f + 40f * 2 + 60f)
-        org.junit.Assert.assertTrue(c.y >= 75f + 40f * 2 + 60f)
-        val inside = DragTagMath.clampCircleCenter(
-            center = androidx.compose.ui.geometry.Offset(540f, 1200f),
+        assertEquals(75f, c.x, 0.01f)
+        assertEquals(75f, c.y, 0.01f)
+        val far = DragTagMath.clampCircleCenter(
+            center = androidx.compose.ui.geometry.Offset(5000f, 5000f),
             screen = screen,
             circleRadius = 75f,
-            bubbleRadius = 40f,
         )
-        assertEquals(540f, inside.x, 0.01f) // already fine → unchanged
-        assertEquals(1200f, inside.y, 0.01f)
+        assertEquals(1080f - 75f, far.x, 0.01f)
+        assertEquals(2400f - 75f, far.y, 0.01f)
+        val inside = androidx.compose.ui.geometry.Offset(540f, 1200f)
+        assertEquals(inside, DragTagMath.clampCircleCenter(inside, screen, 75f))
     }
 
     @Test
@@ -211,25 +239,12 @@ class ReviewFlowTest {
         val centers = listOf(
             androidx.compose.ui.geometry.Offset(-100f, -80f),
             androidx.compose.ui.geometry.Offset(100f, -80f),
-            androidx.compose.ui.geometry.Offset(0f, -140f),
+            androidx.compose.ui.geometry.Offset(0f, -160f),
         )
         assertEquals(-1, DragTagMath.pickTarget(androidx.compose.ui.geometry.Offset(0f, 0f), centers, 40f))
         assertEquals(2, DragTagMath.pickTarget(androidx.compose.ui.geometry.Offset(0f, -150f), centers, 40f))
         assertEquals(0, DragTagMath.pickTarget(androidx.compose.ui.geometry.Offset(-130f, -90f), centers, 40f))
         // too far from everything → no target
         assertEquals(-1, DragTagMath.pickTarget(androidx.compose.ui.geometry.Offset(400f, 400f), centers, 40f))
-    }
-
-    @Test
-    fun bubbleCentersSurroundTheCard() {
-        val centers = DragTagMath.bubbleCenters(width = 800f, height = 200f, bubbleRadius = 40f, count = 5)
-        assertEquals(5, centers.size)
-        // two above, one above-center, two below
-        assertEquals(3, centers.count { it.y < 0f })
-        assertEquals(2, centers.count { it.y > 0f })
-        // all sit outside the card's vertical bounds
-        centers.forEach { c ->
-            kotlin.math.abs(c.y).let { y -> org.junit.Assert.assertTrue("bubble inside card: $c", y >= 100f) }
-        }
     }
 }
