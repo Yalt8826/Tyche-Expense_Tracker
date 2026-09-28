@@ -21,6 +21,10 @@ object AnalyticsMath {
     fun windowFor(period: Period, today: LocalDate = LocalDate.now()): Pair<Long, Long> =
         today.minusMonths(period.months).plusDays(1).toEpochDay() to today.plusDays(1).toEpochDay()
 
+    /** Fixed chart-history caps (purely for graphs — no transaction data is ever deleted). */
+    const val HISTORY_MONTHS: Long = 12
+    const val HISTORY_DAYS: Long = 60
+
     /**
      * Buckets per-type daily rows into calendar months (exact via LocalDate, not /30).
      * Rows outside any month boundary are impossible by construction of the window.
@@ -86,10 +90,27 @@ class AnalyticsRepository(private val dao: TransactionDao) {
     suspend fun load(period: AnalyticsMath.Period): AnalyticsData {
         val (from, to) = AnalyticsMath.windowFor(period)
         val daily = dao.dailySeriesByType(from, to)
+
+        // chart history: fixed caps (12 months / 60 days), independent of the selected period —
+        // purely graph fuel; ledger data itself is never pruned
+        val today = LocalDate.now()
+        val histFromDay = today.minusDays(AnalyticsMath.HISTORY_DAYS - 1).toEpochDay()
+        val dailyCapped = dao.dailySeries(histFromDay, today.plusDays(1).toEpochDay())
+        val dailyDensified = run {
+            val byDay = dailyCapped.associateBy { it.day }
+            (histFromDay..today.toEpochDay()).map { d ->
+                DayPointUi(d, (byDay[d]?.amountPaise ?: 0L) / 100f)
+            }
+        }
+        val monthBarsCapped = AnalyticsMath.monthBars(
+            dao.dailySeriesByType(today.minusMonths(AnalyticsMath.HISTORY_MONTHS).plusDays(1).toEpochDay(), today.plusDays(1).toEpochDay()),
+        )
+
         return AnalyticsData(
             period = period,
-            monthBars = AnalyticsMath.monthBars(daily),
+            monthBars = monthBarsCapped,
             dailyExpense = dao.dailySeries(from, to),
+            dailyPoints = dailyDensified,
             categoryTotals = dao.categoryBreakdown(from, to),
             topMerchants = dao.topMerchants(from, to, 5),
             txnCount = dao.countInRange(from, to),
@@ -97,10 +118,14 @@ class AnalyticsRepository(private val dao: TransactionDao) {
     }
 }
 
+/** One densified day of the trend (missing days arrive as 0). Lives in data layer. */
+data class DayPointUi(val day: Long, val rupees: Float)
+
 data class AnalyticsData(
     val period: AnalyticsMath.Period,
     val monthBars: List<AnalyticsMath.MonthBar>,
     val dailyExpense: List<dev.yashas.expensetracker.data.db.dao.DailyTotalRow>,
+    val dailyPoints: List<DayPointUi>,
     val categoryTotals: List<dev.yashas.expensetracker.data.db.dao.CategoryTotalRow>,
     val topMerchants: List<dev.yashas.expensetracker.data.db.dao.CategoryTotalRow>,
     val txnCount: Int,

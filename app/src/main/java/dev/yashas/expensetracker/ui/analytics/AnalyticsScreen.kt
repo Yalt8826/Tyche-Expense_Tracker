@@ -139,6 +139,7 @@ fun AnalyticsScreen(
                     bars = data.monthBars.map {
                         MonthBarUi(
                             label = monthLabel(it.yearMonth),
+                            yearMonth = it.yearMonth,
                             incomeRupees = it.incomePaise / 100f,
                             expenseRupees = it.expensePaise / 100f,
                         )
@@ -147,11 +148,11 @@ fun AnalyticsScreen(
             }
         }
 
-        // C2 v2: glow trend
-        if (data.dailyExpense.size >= 2) {
+        // C2 v3: glow trend (pannable + tappable, densified 60-day history)
+        if (data.dailyPoints.size >= 2) {
             GlassCard(modifier = Modifier.then(sectionReveal(2))) {
                 Text("Spending trend", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                GlowTrend(valuesRupees = data.dailyExpense.map { it.amountPaise / 100f })
+                GlowTrend(points = data.dailyPoints)
             }
         }
 
