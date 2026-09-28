@@ -120,7 +120,7 @@ fun ExpenseApp(
                 LedgerScreen(repo = txnRepo, reviewMode = false)
             }
             composable(Destination.ANALYTICS.route) {
-                AnalyticsScreen(repo = analyticsRepo)
+                AnalyticsScreen(repo = analyticsRepo, txnRepo = txnRepo)
             }
             composable(Destination.BUDGETS.route) {
                 BudgetScreen(repo = budgetRepo, categories = categories)
