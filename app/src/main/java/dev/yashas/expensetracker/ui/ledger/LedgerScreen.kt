@@ -147,16 +147,31 @@ fun LedgerScreen(
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 if (reviewMode) {
+                    // bubble targets ranked by THIS MONTH's spending share (top 4) + "More"
+                    val monthStart = java.time.YearMonth.now().atDay(1).toEpochDay()
+                    val monthEnd = java.time.YearMonth.now().plusMonths(1).atDay(1).toEpochDay()
+                    val monthRows = state.all.filter {
+                        (it.valueDate ?: it.timestamp / 86_400_000L) in monthStart until monthEnd
+                    }
+                    val ranked = dev.yashas.expensetracker.data.repo.HomeBreakdown.slices(
+                        rows = monthRows,
+                        nameByKey = state.categories.mapValues { c -> c.value.name },
+                        colorTokenByKey = state.categories.mapValues { c -> c.value.colorToken },
+                    ).take(4)
+
                     items(state.reviewGroups, key = { it.key }) { group ->
-                        // drag-to-tag targets: quick chips + suggestion; "More" opens the picker
+                        // drag-to-tag targets: biggest-spending tags (+ the card's own
+                        // suggestion if it's not already in the ring); "More" opens the picker
                         val targets = buildList {
                             group.suggestion?.let {
                                 add(TagTarget(it.categoryKey, it.categoryKey, colorTokenForKey(it.categoryKey, state.categories)))
                             }
-                            QUICK_CHIPS.forEach { (key, label) ->
-                                if (none { t -> t.key == key }) add(TagTarget(key, label, colorTokenForKey(key, state.categories)))
+                            ranked.forEach { slice ->
+                                if (none { t -> t.key == slice.categoryKey }) {
+                                    add(TagTarget(slice.categoryKey, slice.label, slice.colorToken))
+                                }
                             }
-                            if (size < 5) add(TagTarget("more", "More", "series_grey"))
+                            if (none { t -> t.key == "more" }) add(TagTarget("more", "More", "series_grey"))
                         }
                         DragToTagCard(
                             targets = targets,
