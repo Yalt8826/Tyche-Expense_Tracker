@@ -274,10 +274,11 @@ fun DragToTagCard(
                         circleRadius = circlePx / 2f,
                         bubbleRadius = bubbleR,
                     )
-                    // orbit offsets are computed from the CLAMPED circle's radius
-                    val orbit = DragTagMath.orbitOffsets(bubbleR, circlePx / 2f, targets.size)
+                    // bubbles stay ANCHORED where they spawned (floating a fixed distance
+                    // from the resting card); only the circle moves with the finger
+                    val centers = bubbleCentersScreen()
                     targets.forEachIndexed { i, t ->
-                        val c = center + orbit[i]
+                        val c = centers[i]
                         val isHover = hovered == i
                         val d = with(density) { (bubbleR * 2).toDp() }
                         Column(
@@ -318,8 +319,8 @@ fun DragToTagCard(
                                     onDrag = { change, amount ->
                                         change.consume()
                                         finger += amount
-                                        val rel = orbit.map { o -> center + o }
-                                        val h = DragTagMath.pickTarget(Offset.Zero, rel, bubbleR)
+                                        // hover = circle CENTER over an anchored bubble
+                                        val h = DragTagMath.pickTarget(center, centers, bubbleR)
                                         if (h != hovered) {
                                             hovered = h
                                             if (h >= 0) buzz(context, 18)
