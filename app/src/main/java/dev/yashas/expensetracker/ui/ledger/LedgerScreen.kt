@@ -133,20 +133,16 @@ fun LedgerScreen(
                             label = { Text(opt.label) },
                         )
                     }
-                    // calendar button for custom From/To
+                    // calendar button for custom From/To (icon-only until a range is active)
                     FilterChip(
                         selected = state.periodKey == LedgerFilters.RANGE,
                         onClick = { showDatePicker = true },
                         label = {
-                            Text(
-                                text = if (state.periodKey == LedgerFilters.RANGE) {
-                                    val f = state.customFrom
-                                    val t = state.customTo
-                                    if (f != null && t != null) LedgerFilters.rangeLabel(f, t) else "Pick dates"
-                                } else {
-                                    "📅"
-                                },
-                            )
+                            if (state.periodKey == LedgerFilters.RANGE) {
+                                val f = state.customFrom
+                                val t = state.customTo
+                                if (f != null && t != null) Text(LedgerFilters.rangeLabel(f, t))
+                            }
                         },
                         leadingIcon = {
                             Icon(

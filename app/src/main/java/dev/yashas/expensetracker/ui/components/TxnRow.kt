@@ -1,6 +1,8 @@
 package dev.yashas.expensetracker.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -69,28 +71,20 @@ fun categoryIcon(name: String): ImageVector = when (name) {
     else -> IconsAuto.Category
 }
 
-/** Cross-cutting provenance chip (01-SCREENS): ✓ auto · ⚠ review · ✎ manual — icon + text, never color alone. */
+/** Cross-cutting provenance mark (01-SCREENS): icon only — ✓ auto · ⚠ review · ✎ manual. */
 @Composable
-fun ProvenanceChip(provenance: Provenance, modifier: Modifier = Modifier) {
-    val (label, icon, tint) = when (provenance) {
-        Provenance.AUTO_CONFIRMED -> Triple("auto", IconsAuto.Check, SemanticGreen)
-        Provenance.AUTO_REVIEW -> Triple("review", IconsAuto.Warning, SeriesAmber)
-        Provenance.MANUAL -> Triple("manual", IconsAuto.Edit, TextSecondary)
+fun ProvenanceIcon(provenance: Provenance, modifier: Modifier = Modifier) {
+    val (desc, icon, tint) = when (provenance) {
+        Provenance.AUTO_CONFIRMED -> Triple("Auto-confirmed", IconsAuto.Check, SemanticGreen)
+        Provenance.AUTO_REVIEW -> Triple("Needs review", IconsAuto.Warning, SeriesAmber)
+        Provenance.MANUAL -> Triple("Added manually", IconsAuto.Edit, TextSecondary)
     }
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
-        ) {
-            Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(11.dp))
-            Text(text = label, style = MaterialTheme.typography.labelSmall, color = tint)
-        }
-    }
+    Icon(
+        imageVector = icon,
+        contentDescription = desc,
+        tint = tint,
+        modifier = modifier.size(13.dp),
+    )
 }
 
 /** Ledger row (S9): category icon, merchant, amount, provenance chip. */
@@ -109,13 +103,25 @@ fun TxnRow(
         isPositive -> SemanticGreen
         else -> MaterialTheme.colorScheme.onSurface
     }
-    Row(
+    val accent = categoryColor(categoryColorToken ?: "")
+    Surface(
+        onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+        border = BorderStroke(
+            width = 1.2.dp,
+            color = if (categoryColorToken != null) accent.copy(alpha = 0.55f)
+            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+        ),
     ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
         Box(
             modifier = Modifier
                 .size(40.dp)
@@ -148,7 +154,7 @@ fun TxnRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                ProvenanceChip(txn.provenance)
+                ProvenanceIcon(txn.provenance)
                 if (txn.type == TxnType.TRANSFER) {
                     Text(text = "transfer", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                 }
@@ -163,5 +169,6 @@ fun TxnRow(
             fontWeight = FontWeight.SemiBold,
             color = amountColor,
         )
+        }
     }
 }
