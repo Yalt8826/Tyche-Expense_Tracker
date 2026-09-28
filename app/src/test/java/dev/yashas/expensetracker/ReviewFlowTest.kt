@@ -172,6 +172,41 @@ class ReviewFlowTest {
     }
 
     @Test
+    fun orbitOffsetsSurroundCircleEvenly() {
+        val orbit = DragTagMath.orbitOffsets(bubbleRadius = 40f, circleRadius = 75f, count = 5)
+        assertEquals(5, orbit.size)
+        // all bubbles farther than circle radius + bubble radius - gap tolerance
+        orbit.forEach { o ->
+            val dist = o.getDistance()
+            org.junit.Assert.assertTrue("orbit too close: $dist", dist >= 75f + 40f)
+        }
+        // first bubble is above the circle (angle -90°)
+        org.junit.Assert.assertTrue(orbit.first().y < -100f)
+    }
+
+    @Test
+    fun clampCircleCenterKeepsCircleAndBubblesOnScreen() {
+        val screen = androidx.compose.ui.unit.IntSize(1080, 2400)
+        val c = DragTagMath.clampCircleCenter(
+            center = androidx.compose.ui.geometry.Offset(-500f, -800f),
+            screen = screen,
+            circleRadius = 75f,
+            bubbleRadius = 40f,
+        )
+        // clamped inside margins, never negative
+        org.junit.Assert.assertTrue(c.x >= 75f + 40f * 2 + 60f)
+        org.junit.Assert.assertTrue(c.y >= 75f + 40f * 2 + 60f)
+        val inside = DragTagMath.clampCircleCenter(
+            center = androidx.compose.ui.geometry.Offset(540f, 1200f),
+            screen = screen,
+            circleRadius = 75f,
+            bubbleRadius = 40f,
+        )
+        assertEquals(540f, inside.x, 0.01f) // already fine → unchanged
+        assertEquals(1200f, inside.y, 0.01f)
+    }
+
+    @Test
     fun dragTargetsPickNearestWithinForgivingRadius() {
         val centers = listOf(
             androidx.compose.ui.geometry.Offset(-100f, -80f),
