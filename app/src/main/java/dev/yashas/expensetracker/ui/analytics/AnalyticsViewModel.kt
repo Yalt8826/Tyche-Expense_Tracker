@@ -9,6 +9,8 @@ import dev.yashas.expensetracker.data.repo.AnalyticsMath
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -29,6 +31,14 @@ class AnalyticsViewModel(private val repo: AnalyticsRepository) : ViewModel() {
 
     init {
         refresh()
+        // live updates: any transaction write (confirm/tag/add/delete) re-runs the
+        // load — charts reflect edits without leaving the tab or restarting
+        viewModelScope.launch {
+            repo.observeTransactions()
+                .distinctUntilChanged()
+                .drop(1) // initial emission: refresh() above already covers it
+                .collect { refresh() }
+        }
     }
 
     fun setPeriod(period: AnalyticsMath.Period) {

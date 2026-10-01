@@ -117,6 +117,12 @@ class BudgetRepository(
         )
     }
 
+    /** Change signal for live reloads: budget table re-emits on every editor save. */
+    fun observeBudgets() = catalog.observeBudgets()
+
+    /** Change signal for live reloads: any transaction write re-emits here. */
+    fun observeTransactions() = dao.observeAll()
+
     /** Create-or-replace a budget for one category (null = overall). Rupee-free zone: paise in. */
     suspend fun saveBudget(categoryKey: String?, amountPaise: Long) {
         val existing = catalog.observeBudgets().first().firstOrNull { it.categoryKey == categoryKey }
