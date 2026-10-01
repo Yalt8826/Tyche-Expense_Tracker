@@ -1,6 +1,9 @@
 package dev.yashas.expensetracker.ui.settings
 
 import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,12 +33,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import dev.yashas.expensetracker.data.export.BackupCodec
 import dev.yashas.expensetracker.data.export.CsvExporter
 import dev.yashas.expensetracker.data.repo.BudgetRepository
 import dev.yashas.expensetracker.data.repo.UserPrefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/** App version embedded in backups; BuildConfig.versionName parsed to an int where possible. */
+private val BuildVersionValue: Int =
+    dev.yashas.expensetracker.BuildConfig.VERSION_NAME.split('.')
+        .mapNotNull { it.filter(Char::isDigit).toIntOrNull() }
+        .fold(0) { acc, n -> acc * 100 + n }
 
 /**
  * P6 / S17 Settings (behind the Home avatar): profile name, CSV export to Downloads,
@@ -56,10 +66,14 @@ fun SettingsScreen(
     var status by remember { mutableStateOf<String?>(null) }
     var confirmDemoWipe by remember { mutableStateOf(false) }
     var confirmWipeAll by remember { mutableStateOf(false) }
+    var pendingRestore by remember { mutableStateOf<String?>(null) }
+    var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
+    var savedName by remember { mutableStateOf("") }
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
         prefs.nameFlow.collect { value ->
             name = value
+            savedName = value
             nameLoaded = true
         }
     }
@@ -128,6 +142,69 @@ fun SettingsScreen(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
+                // ── phone-switch backup/restore ──
+                val backupLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.CreateDocument("application/json"),
+                ) { uri: Uri? ->
+                    if (uri != null) {
+                        scope.launch {
+                            status = "Writing backup…"
+                            val db = dev.yashas.expensetracker.AppGraph.database(context)
+                            val jsonText = withContext(Dispatchers.IO) {
+                                BackupCodec.encode(
+                                    BackupCodec.export(db, savedName.ifBlank { null }, BuildVersionValue),
+                                )
+                            }
+                            withContext(Dispatchers.IO) {
+                                context.contentResolver.openOutputStream(uri)?.use { out ->
+                                    out.write(jsonText.toByteArray(Charsets.UTF_8))
+                                }
+                            }
+                            status = "Backup saved"
+                        }
+                    }
+                }
+                val restoreLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.OpenDocument(),
+                ) { uri: Uri? ->
+                    if (uri != null) {
+                        scope.launch {
+                            try {
+                                val text = withContext(Dispatchers.IO) {
+                                    context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+                                }
+                                val backup = text?.let { BackupCodec.decode(it) }
+                                if (backup == null) {
+                                    status = "Could not read that file"
+                                } else {
+                                    pendingRestore = BackupCodec.summarize(backup)
+                                    pendingRestoreUri = uri
+                                }
+                            } catch (e: Exception) {
+                                status = "Import failed: not a valid backup file"
+                            }
+                        }
+                    }
+                }
+                Button(
+                    onClick = {
+                        backupLauncher.launch("expense-tracker-backup.json")
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Backup for phone switch (everything)") }
+                OutlinedButton(
+                    onClick = { restoreLauncher.launch(arrayOf("application/json", "text/*", "application/octet-stream")) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Import backup") }
+                Text(
+                    "Backup carries every transaction, account, category, budget, rule and tag — " +
+                        "importing replaces what's on this phone with the backup's contents.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
                 if (dev.yashas.expensetracker.BuildConfig.DEBUG) {
                     OutlinedButton(
                         onClick = { confirmDemoWipe = true },
@@ -149,6 +226,47 @@ fun SettingsScreen(
             )
         }
         Spacer(Modifier.height(96.dp)) // FAB clearance
+    }
+
+    if (pendingRestore != null && pendingRestoreUri != null) {
+        AlertDialog(
+            onDismissRequest = { pendingRestore = null; pendingRestoreUri = null },
+            title = { Text("Import this backup?") },
+            text = {
+                Column {
+                    Text(pendingRestore ?: "")
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Importing REPLACES everything currently on this phone with the backup's contents. This cannot be undone.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val uri = pendingRestoreUri
+                    pendingRestore = null
+                    pendingRestoreUri = null
+                    if (uri != null) {
+                        scope.launch {
+                            status = "Restoring…"
+                            try {
+                                val text = withContext(Dispatchers.IO) {
+                                    context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+                                }
+                                val backup = text?.let { BackupCodec.decode(it) } ?: throw IllegalStateException("unreadable")
+                                withContext(Dispatchers.IO) { BackupCodec.restore(dev.yashas.expensetracker.AppGraph.database(context), backup) }
+                                status = "Restored ${backup.transactions.size} transactions — all data replaced"
+                            } catch (e: Exception) {
+                                status = "Restore failed: ${e.message ?: "unknown error"}"
+                            }
+                        }
+                    }
+                }) { Text("Replace and import") }
+            },
+            dismissButton = { TextButton(onClick = { pendingRestore = null; pendingRestoreUri = null }) { Text("Cancel") } },
+        )
     }
 
     if (confirmDemoWipe) {

@@ -91,4 +91,36 @@ interface CatalogDao {
 
     @Query("DELETE FROM sms_raw WHERE parsedState = 'PARSED' AND timestamp < :cutoff")
     suspend fun purgeParsedOlderThan(cutoff: Long): Int
+
+    // ── Backup/restore (P6) ──
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAccountAll(accounts: List<AccountEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertCategoryAll(categories: List<CategoryEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertTagAll(tags: List<dev.yashas.expensetracker.data.db.entity.TagEntity>)
+
+    @Query("SELECT * FROM tags")
+    fun observeTags(): Flow<List<dev.yashas.expensetracker.data.db.entity.TagEntity>>
+
+    @Query("SELECT txnId, tagId FROM txn_tags")
+    fun observeTxnTags(): Flow<List<TxnTagCrossRef>>
+
+    @Query("DELETE FROM accounts")
+    suspend fun clearAccounts()
+
+    @Query("DELETE FROM categories")
+    suspend fun clearCategories()
+
+    @Query("DELETE FROM budgets")
+    suspend fun clearBudgets()
+
+    @Query("DELETE FROM rules")
+    suspend fun clearRules()
+
+    @Query("DELETE FROM tags")
+    suspend fun clearTags()
 }

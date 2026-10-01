@@ -24,6 +24,10 @@ interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertAll(txns: List<TransactionEntity>): List<Long>
 
+    /** Backup restore: insert with original IDs preserved (refund/transfer links survive). */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllPreservingIds(txns: List<TransactionEntity>)
+
     @Update
     suspend fun update(txn: TransactionEntity)
 
