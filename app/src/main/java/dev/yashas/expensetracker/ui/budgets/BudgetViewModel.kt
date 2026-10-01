@@ -41,6 +41,18 @@ class BudgetViewModel(private val repo: BudgetRepository) : ViewModel() {
         }
     }
 
+    /** Remove the budget for one category (or overall when null). */
+    fun deleteBudget(categoryKey: String?) {
+        viewModelScope.launch {
+            repo.deleteBudget(categoryKey)
+            refresh()
+        }
+    }
+
+    /** Categories without budgets, for the "add budget" flow. */
+    suspend fun unbudgetedCategories(): List<dev.yashas.expensetracker.data.db.entity.CategoryEntity> =
+        repo.unbudgetedCategories()
+
     companion object {
         fun factory(repo: BudgetRepository): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
