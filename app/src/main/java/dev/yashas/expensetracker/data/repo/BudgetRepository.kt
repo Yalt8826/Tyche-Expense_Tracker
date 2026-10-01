@@ -83,6 +83,22 @@ class BudgetRepository(
     private val catalog: dev.yashas.expensetracker.data.db.dao.CatalogDao,
 ) {
 
+    /** P6 demo-wipe: delete demo-seeded rows; returns how many rows went away. */
+    suspend fun wipeDemoData(): Int {
+        val deleted = dao.deleteDemo()
+        if (deleted > 0) {
+            // demo sample budgets (created alongside the seed) go with the data
+            val demoBudgetKeys = listOf<String?>(null, "food", "transport")
+            catalog.observeBudgets().first()
+                .filter { it.categoryKey in demoBudgetKeys }
+                .forEach { catalog.deleteBudget(it.id) }
+        }
+        return deleted
+    }
+
+    /** P6 wipe-all: erase the entire ledger (transactions only; accounts/banks stay seeded). */
+    suspend fun wipeAllTransactions(): Int = dao.deleteAllTransactions()
+
     suspend fun load(today: LocalDate = LocalDate.now()): BudgetData {
         val ym = YearMonth.from(today)
         val from = ym.atDay(1).toEpochDay()
