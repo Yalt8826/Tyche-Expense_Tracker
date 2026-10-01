@@ -5,11 +5,14 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,11 +35,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -80,18 +85,19 @@ fun BudgetScreen(repo: BudgetRepository, categories: List<dev.yashas.expensetrac
     val vm: BudgetViewModel = viewModel(factory = BudgetViewModel.factory(repo))
     val state by vm.state.collectAsState()
     var editor by remember { mutableStateOf<EditorTarget?>(null) }
+    var heroReadout by remember { mutableIntStateOf(0) } // 0 = %, 1 = spent/limit, 2 = projection
     val data = state.data
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { Spacer(Modifier.height(8.dp)) }
         item {
             Text("Budgets", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         }
 
-        // ── hero: pace ring + verdict ──
+        // ── hero: pace ring + verdict (tap the ring to cycle the readout) ──
         item {
             GlassCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
@@ -99,7 +105,10 @@ fun BudgetScreen(repo: BudgetRepository, categories: List<dev.yashas.expensetrac
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     val overall = data?.overall
-                    Box(contentAlignment = Alignment.Center) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.clickable { heroReadout = (heroReadout + 1) % 3 },
+                    ) {
                         RingGauge(
                             spendFraction = overall?.spendFraction ?: 0f,
                             monthFraction = overall?.monthFraction ?: 0f,
@@ -111,16 +120,35 @@ fun BudgetScreen(repo: BudgetRepository, categories: List<dev.yashas.expensetrac
                             modifier = Modifier.size(150.dp),
                         )
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            // R4: beyond 2× show "Nx of budget" — "388%" reads like a grade
+                            when (heroReadout) {
+                                // R4: beyond 2× show "Nx of budget" — "388%" reads like a grade
+                                0 -> Text(
+                                    overall?.let {
+                                        if (it.spendFraction >= 2f) "${it.spendFraction.toInt()}× of budget" else "${(it.spendFraction * 100).toInt()}%"
+                                    } ?: "—",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                1 -> Text(
+                                    overall?.let {
+                                        val l = it.limitPaise?.let { li -> " / ${MoneyFormat.formatRupeesWhole(li)}" } ?: ""
+                                        MoneyFormat.formatRupeesWhole(it.spentPaise) + l
+                                    } ?: "—",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                else -> Text(
+                                    overall?.let { "proj. ${MoneyFormat.formatRupeesWhole(it.projectedEndPaise)}" } ?: "—",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
                             Text(
-                                overall?.let {
-                                    if (it.spendFraction >= 2f) "${it.spendFraction.toInt()}× of budget" else "${(it.spendFraction * 100).toInt()}%"
-                                } ?: "—",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                            )
-                            Text(
-                                overall?.let { "Month ${(it.monthFraction * 100).toInt()}%" } ?: "",
+                                when (heroReadout) {
+                                    0 -> overall?.let { "Month ${(it.monthFraction * 100).toInt()}%" } ?: ""
+                                    1 -> "spent so far"
+                                    else -> "by month end · tap ring"
+                                },
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -151,18 +179,27 @@ fun BudgetScreen(repo: BudgetRepository, categories: List<dev.yashas.expensetrac
             if (d != null) {
                 GlassCard(modifier = Modifier.fillMaxWidth()) {
                     Text("Daily burn", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    var selectedDay by remember { mutableStateOf<Int?>(null) }
                     DailyBurnChart(
                         dailySpend = d.dailySpend,
                         daysInMonth = d.daysInMonth,
                         limitPaise = d.overall.limitPaise,
+                        selectedDay = selectedDay,
+                        onDayTap = { day -> selectedDay = if (selectedDay == day) null else day },
                     )
                     val today = LocalDate.now()
-                    val todayPaise = d.dailySpend.firstOrNull { it.first == today.toEpochDay() }?.second ?: 0L
-                    val fairShare = d.overall.limitPaise?.let { it / d.daysInMonth }
+                    val infoDay = selectedDay ?: today.dayOfMonth
+                    val infoPaise = d.dailySpend.firstOrNull { (it.first) == today.withDayOfMonth(infoDay).toEpochDay() }?.second ?: 0L
+                    val fair = d.overall.limitPaise?.div(d.daysInMonth)
                     Text(
                         buildString {
-                            if (fairShare != null) append("Fair share ${MoneyFormat.formatRupeesWhole(fairShare)}/day · ")
-                            append("today ${MoneyFormat.formatRupeesWhole(todayPaise)}")
+                            append("${today.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH)} ${infoDay}")
+                            append(" · ${MoneyFormat.formatRupeesWhole(infoPaise)}")
+                            if (fair != null && fair > 0) {
+                                val mult = infoPaise.toFloat() / fair
+                                append(" · %.1f× fair share".format(mult))
+                                if (selectedDay == null) append(" · tap a bar for details")
+                            }
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -303,6 +340,8 @@ private fun DailyBurnChart(
     dailySpend: List<Pair<Long, Long>>,
     daysInMonth: Int,
     limitPaise: Long?,
+    selectedDay: Int? = null,
+    onDayTap: (Int) -> Unit = {},
 ) {
     val progress = remember { Animatable(0f) }
     LaunchedEffect(dailySpend) {
@@ -319,7 +358,18 @@ private fun DailyBurnChart(
     }
     LaunchedEffect(axisLabel) { labelPaint.color = axisLabel.toArgb() }
 
-    Canvas(modifier = Modifier.fillMaxWidth().height(150.dp)) {
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(150.dp)
+            .pointerInput(daysInMonth, dailySpend) {
+                detectTapGestures { offset ->
+                    val slot = size.width / daysInMonth
+                    val day = ((offset.x / slot) + 0.5f).toInt().coerceIn(1, daysInMonth)
+                    onDayTap(day)
+                }
+            },
+    ) {
         val maxPaise = maxOf(
             byDay.values.maxOrNull() ?: 1L,
             fairPaise ?: 0L,
@@ -358,6 +408,16 @@ private fun DailyBurnChart(
             )
             if (isToday) {
                 drawCircle(Color.White, radius = 2.6f, center = Offset(cx, baseY - h - 6f))
+            }
+            // selection ring highlight
+            if (selectedDay == day) {
+                drawRoundRect(
+                    color = Color.White.copy(alpha = 0.5f),
+                    topLeft = Offset(cx - barW / 2f - 3f, baseY - h.coerceAtLeast(4f) - 3f),
+                    size = Size(barW + 6f, h.coerceAtLeast(4f) + 6f),
+                    cornerRadius = CornerRadius(barW / 2f + 3f, barW / 2f + 3f),
+                    style = Stroke(width = 2f),
+                )
             }
         }
 
