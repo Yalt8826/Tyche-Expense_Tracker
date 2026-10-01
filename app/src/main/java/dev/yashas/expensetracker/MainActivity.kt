@@ -60,7 +60,11 @@ class MainActivity : ComponentActivity() {
         val prefs = UserPrefs(this)
         lifecycleScope.launch(Dispatchers.IO) {
             AppGraph.bootstrap(this@MainActivity)
-            DemoData.seedIfNeeded(AppGraph.database(this@MainActivity))
+            // demo seeding is a dev-only affordance (athena workstation builds);
+            // release builds start clean per 00-MASTER (day-zero, real data only)
+            if (BuildConfig.DEBUG && java.lang.Boolean.parseBoolean(System.getProperty("et.demo.seed", "false"))) {
+                DemoData.seedIfNeeded(AppGraph.database(this@MainActivity))
+            }
         }
 
         val onboardingDonePref = getSharedPreferences("app_flags", MODE_PRIVATE)
