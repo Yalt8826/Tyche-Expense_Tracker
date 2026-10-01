@@ -68,6 +68,7 @@ private val TAG_COLORS = listOf(
 fun HomeScreen(
     repo: TxnRepository,
     onOpenReview: () -> Unit,
+    onOpenSettings: () -> Unit = {},
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val prefs = remember { UserPrefs(context) }
@@ -104,12 +105,12 @@ fun HomeScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            // avatar -> rename dialog until Settings (P6) lands
+            // avatar -> Settings (P6); long-press still renames inline
             Box(
                 modifier = Modifier
                     .size(44.dp)
                     .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-                    .clickable { renameOpen = true },
+                    .clickable { onOpenSettings() },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(

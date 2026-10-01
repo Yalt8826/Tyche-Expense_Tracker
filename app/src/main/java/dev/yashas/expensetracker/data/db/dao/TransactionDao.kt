@@ -77,6 +77,14 @@ interface TransactionDao {
     @Query("SELECT COUNT(*) FROM transactions WHERE ruleAppliedKey = 'demo'")
     suspend fun countDemo(): Int
 
+    /** P6 demo-wipe: remove every demo-seeded row. */
+    @Query("DELETE FROM transactions WHERE ruleAppliedKey = 'demo'")
+    suspend fun deleteDemo(): Int
+
+    /** P6 wipe-all: the irreversible reset behind the double-confirm dialog. */
+    @Query("DELETE FROM transactions")
+    suspend fun deleteAllTransactions(): Int
+
     /** Overall budget limit (budgets.categoryKey IS NULL), 0 when none. */
     @Query("SELECT COALESCE(SUM(amountPaise), 0) FROM budgets WHERE categoryKey IS NULL")
     suspend fun overallBudgetPaise(): Long?

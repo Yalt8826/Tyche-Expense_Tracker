@@ -29,6 +29,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import dev.yashas.expensetracker.data.repo.TxnRepository
+import kotlinx.coroutines.flow.first
 import dev.yashas.expensetracker.data.repo.AnalyticsRepository
 import dev.yashas.expensetracker.data.repo.BudgetRepository
 import dev.yashas.expensetracker.ui.analytics.AnalyticsScreen
@@ -39,6 +40,9 @@ import dev.yashas.expensetracker.ui.ledger.LedgerScreen
 import dev.yashas.expensetracker.ui.navigation.Destination
 import dev.yashas.expensetracker.ui.navigation.bottomTabOrder
 import dev.yashas.expensetracker.ui.quickadd.QuickAddSheet
+import dev.yashas.expensetracker.ui.settings.SettingsScreen
+
+private const val SETTINGS_ROUTE = "settings"
 
 /**
  * App shell: 4 tabs + quick-add FAB (00-MASTER §7). Review Inbox is reached from the
@@ -60,20 +64,25 @@ fun ExpenseApp(
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
-                bottomTabOrder.forEach { dest ->
-                    NavigationBarItem(
-                        selected = currentDestination?.hierarchy?.any { it.route == dest.route } == true,
-                        onClick = {
-                            navController.navigate(dest.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(imageVector = dest.icon, contentDescription = dest.label) },
-                        label = { Text(text = dest.label) },
-                    )
+            // hide the tab bar on settings/review (focused modes)
+            val showBar = currentDestination?.route == null ||
+                currentDestination?.route in bottomTabOrder.map { it.route }
+            if (showBar) {
+                NavigationBar {
+                    bottomTabOrder.forEach { dest ->
+                        NavigationBarItem(
+                            selected = currentDestination?.hierarchy?.any { it.route == dest.route } == true,
+                            onClick = {
+                                navController.navigate(dest.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            icon = { Icon(imageVector = dest.icon, contentDescription = dest.label) },
+                            label = { Text(text = dest.label) },
+                        )
+                    }
                 }
             }
         },
@@ -114,6 +123,7 @@ fun ExpenseApp(
                 HomeScreen(
                     repo = txnRepo,
                     onOpenReview = { navController.navigate(TRANSACTIONS_REVIEW_ROUTE) },
+                    onOpenSettings = { navController.navigate(SETTINGS_ROUTE) },
                 )
             }
             composable(Destination.TRANSACTIONS.route) {
@@ -127,6 +137,13 @@ fun ExpenseApp(
             }
             composable(TRANSACTIONS_REVIEW_ROUTE) {
                 LedgerScreen(repo = txnRepo, reviewMode = true)
+            }
+            composable(SETTINGS_ROUTE) {
+                SettingsScreen(
+                    budgetRepo = budgetRepo,
+                    ledgerRows = { txnRepo.observeAll().first() },
+                    onBack = { navController.popBackStack() },
+                )
             }
         }
     }
