@@ -112,6 +112,8 @@ class BudgetRepository(
                 spentByCategory,
             ),
             spentByCategory = spentByCategory,
+            dailySpend = dao.dailySeries(from, to).map { it.day to it.amountPaise },
+            daysInMonth = ym.lengthOfMonth(),
         )
     }
 
@@ -128,10 +130,26 @@ class BudgetRepository(
             ),
         )
     }
+
+    /** Remove a category budget by key (overall budgets have categoryKey == null). */
+    suspend fun deleteBudget(categoryKey: String?) {
+        catalog.observeBudgets().first().firstOrNull { it.categoryKey == categoryKey }?.let {
+            catalog.deleteBudget(it.id)
+        }
+    }
+
+    /** Every category without a budget this month — the "add" list in the editor. */
+    suspend fun unbudgetedCategories(): List<dev.yashas.expensetracker.data.db.entity.CategoryEntity> {
+        val budgeted = catalog.observeBudgets().first().mapNotNull { it.categoryKey }.toSet()
+        return catalog.observeCategories().first().filter { it.key !in budgeted }
+    }
 }
 
 data class BudgetData(
     val overall: BudgetMath.Overall,
     val categories: List<BudgetMath.CategoryStatus>,
     val spentByCategory: Map<String, Long>,
+    /** (epochDay, paise) for each day of the current month that had spend. */
+    val dailySpend: List<Pair<Long, Long>>,
+    val daysInMonth: Int,
 )
