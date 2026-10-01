@@ -180,14 +180,12 @@ fun LedgerScreen(
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 if (reviewMode) {
-                    // bubble targets ranked by THIS MONTH's spending share (top 4) + "More"
-                    val monthStart = java.time.YearMonth.now().atDay(1).toEpochDay()
-                    val monthEnd = java.time.YearMonth.now().plusMonths(1).atDay(1).toEpochDay()
-                    val monthRows = state.all.filter {
-                        (it.valueDate ?: it.timestamp / 86_400_000L) in monthStart until monthEnd
-                    }
+                    // bubble targets ranked by ALL-TIME spending share (top 4) + "More".
+                    // Month-only ranking starves the ring at the start of a month (nothing
+                    // spent yet → only "More" appears); all-time always reflects the
+                    // categories the user actually uses. Home's bar stays month-scoped.
                     val ranked = dev.yashas.expensetracker.data.repo.HomeBreakdown.slices(
-                        rows = monthRows,
+                        rows = state.all.filter { it.type.name == "EXPENSE" },
                         nameByKey = state.categories.mapValues { c -> c.value.name },
                         colorTokenByKey = state.categories.mapValues { c -> c.value.colorToken },
                     ).take(4)
