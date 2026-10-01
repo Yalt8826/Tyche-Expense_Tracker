@@ -18,6 +18,9 @@ class AnalyticsViewModel(private val repo: AnalyticsRepository) : ViewModel() {
     data class UiState(
         val loading: Boolean = true,
         val period: AnalyticsMath.Period = AnalyticsMath.Period.M3,
+        /** Custom From/To (epochDay, end-exclusive). Non-null = custom range overrides period. */
+        val customFrom: Long? = null,
+        val customTo: Long? = null,
         val data: AnalyticsData? = null,
     )
 
@@ -29,13 +32,25 @@ class AnalyticsViewModel(private val repo: AnalyticsRepository) : ViewModel() {
     }
 
     fun setPeriod(period: AnalyticsMath.Period) {
-        _state.update { it.copy(period = period) }
+        _state.update { it.copy(period = period, customFrom = null, customTo = null) }
         refresh()
+    }
+
+    /** Custom From/To from the calendar picker (end-exclusive). */
+    fun setCustomRange(fromEpochDay: Long, toEpochDay: Long) {
+        if (toEpochDay > fromEpochDay) {
+            _state.update { it.copy(customFrom = fromEpochDay, customTo = toEpochDay) }
+            refresh()
+        }
     }
 
     fun refresh() {
         viewModelScope.launch {
-            val data = repo.load(_state.value.period)
+            val s = _state.value
+            val window = if (s.customFrom != null && s.customTo != null && s.customTo > s.customFrom) {
+                s.customFrom to s.customTo
+            } else null
+            val data = repo.load(s.period, window)
             _state.update { it.copy(loading = false, data = data) }
         }
     }

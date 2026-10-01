@@ -93,7 +93,7 @@ fun TrendyBars(
                         val months = dragAccum / groupW
                         if (kotlin.math.abs(months) >= 0.02f) {
                             dragAccum = 0f
-                            pan = (pan - months).coerceIn(0f, maxPan.toFloat())
+                            pan = (pan + months).coerceIn(0f, maxPan.toFloat())
                         }
                     }
                 }
@@ -142,7 +142,6 @@ fun TrendyBars(
                     height = ih,
                     depth = depth,
                     base = SeriesCyan,
-                    dark = SeriesCyan.copy(red = SeriesCyan.red * 0.55f, green = SeriesCyan.green * 0.55f, blue = SeriesCyan.blue * 0.55f),
                 )
                 val eh = (bar.expenseRupees / maxVal) * chartH * p
                 extrudedBar(
@@ -152,7 +151,6 @@ fun TrendyBars(
                     height = eh,
                     depth = depth,
                     base = SeriesViolet,
-                    dark = SeriesViolet.copy(red = SeriesViolet.red * 0.55f, green = SeriesViolet.green * 0.55f, blue = SeriesViolet.blue * 0.55f),
                 )
 
                 // month label centered under its column group
@@ -176,7 +174,7 @@ fun TrendyBars(
                 )
             } else {
                 Text(
-                    if (maxPan > 0) "Tap a month for details · drag left for history" else "Tap a month for details",
+                    if (maxPan > 0) "Tap a month for details · drag right for history" else "Tap a month for details",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
@@ -207,7 +205,6 @@ private fun DrawScope.extrudedBar(
     height: Float,
     depth: Float,
     base: Color,
-    dark: Color,
 ) {
     if (height <= 0f) return
     val r = width / 2f
@@ -225,14 +222,7 @@ private fun DrawScope.extrudedBar(
         cornerRadius = CornerRadius(r, r),
         style = Fill,
     )
-    val side = Path().apply {
-        moveTo(left + width, top + r)
-        lineTo(left + width + depth, top + r - depth)
-        lineTo(left + width + depth, top + height - r)
-        lineTo(left + width, top + height)
-        close()
-    }
-    drawPath(side, dark.copy(alpha = 0.85f), style = Fill)
+    // top cap parallelogram (keeps the extruded 3D read)
     val cap = Path().apply {
         moveTo(left, top + r)
         lineTo(left + r, top)
@@ -245,6 +235,19 @@ private fun DrawScope.extrudedBar(
     drawPath(
         cap,
         base.copy(red = base.red + (1 - base.red) * 0.5f, green = base.green + (1 - base.green) * 0.5f, blue = base.blue + (1 - base.blue) * 0.5f),
+        style = Fill,
+    )
+    // glossy glass strip along the right edge (light reflection, no shadow)
+    val stripW = width * 0.16f
+    drawRoundRect(
+        brush = Brush.verticalGradient(
+            listOf(Color.White.copy(alpha = 0.38f), Color.White.copy(alpha = 0.04f)),
+            startY = top,
+            endY = top + height,
+        ),
+        topLeft = Offset(left + width - stripW - r * 0.35f, top + r * 0.9f),
+        size = Size(stripW, (height - r * 1.4f).coerceAtLeast(0f)),
+        cornerRadius = CornerRadius(stripW / 2f, stripW / 2f),
         style = Fill,
     )
 }

@@ -44,7 +44,7 @@ class CaptureEngine {
                 accountMask = SmsText.extractAccountMask(body),
                 utrRef = SmsText.extractUtr(body),
                 balancePaise = SmsText.extractBalancePaise(body),
-                merchant = SmsText.extractMerchant(body),
+                merchant = SmsText.extractMerchant(body, direction),
                 vpa = SmsText.extractVpa(body),
                 valueDateEpochDay = SmsText.extractValueDateEpochDay(body),
                 matchedSignature = SmsText.signature(body),
