@@ -126,9 +126,30 @@ object SmsText {
         Regex("""\b([a-z0-9._-]{2,}@[a-z]{2,})\b""", RegexOption.IGNORE_CASE)
             .find(body)?.groupValues?.get(1)
 
-    /** Merchant guess: capitalized words right after for/towards/at/to (bank-SMS convention; Kotak uses "to <Payee>"). */
-    fun extractMerchant(body: String): String? =
-        Regex("""(?:for|towards|at|to)\s+([A-Z][A-Za-z0-9&]*(?:\s+[A-Z][A-Za-z0-9&]*)*)""")
-            .find(body)?.groupValues?.get(1)?.trim()
-            ?: extractVpa(body)
+    /**
+     * Merchant/sender guess, direction-aware (bank-SMS convention):
+     *  DEBIT → payee follows for/towards/at/to (Kotak debit uses "to <Payee>")
+     *  CREDIT → payer follows from/by ("from JOHN DOE"), falling back to VPA.
+     * Possessive pronouns right after the anchor ("to your…") mean the user's own
+     * account — never a merchant — and are skipped.
+     */
+    fun extractMerchant(body: String, direction: Direction? = null): String? {
+        val debitAnchors = "for|towards|at|to"
+        val creditAnchors = "from|by"
+        val anchors = when (direction) {
+            Direction.DEBIT -> debitAnchors
+            Direction.CREDIT -> creditAnchors
+            null -> "$debitAnchors|$creditAnchors"
+        }
+        val noPronoun = """(?!your\b|you\b|ur\b)"""
+        // 1) Capitalized name run after the anchor (JOHN DOE, Amazon Pay,…)
+        val capName = Regex("""(?:$anchors)\s+$noPronoun([A-Z][A-Za-z0-9&]*(?:\s+[A-Z][A-Za-z0-9&]*)*)""")
+        capName.find(body)?.groupValues?.get(1)?.trim()?.trimEnd('.', ',', ':')?.let { return it }
+        // 2) Credit fallback: any word-run after from/by (senders are sometimes lowercase)
+        if (direction == Direction.CREDIT) {
+            val anyName = Regex("""(?:$creditAnchors)\s+$noPronoun([A-Za-z][A-Za-z0-9&@_-]{2,}(?:\s+[A-Za-z][A-Za-z0-9&_-]{2,})*)""")
+            anyName.find(body)?.groupValues?.get(1)?.trim()?.trimEnd('.', ',', ':')?.let { return it }
+        }
+        return extractVpa(body)
+    }
 }

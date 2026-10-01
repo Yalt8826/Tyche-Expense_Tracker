@@ -97,7 +97,7 @@ fun GlowTrend(
                         val days = dragAccum / stepX
                         if (kotlin.math.abs(days) >= 0.02f) {
                             dragAccum = 0f
-                            pan = (pan - days).coerceIn(0f, maxPan.toFloat())
+                            pan = (pan + days).coerceIn(0f, maxPan.toFloat())
                         }
                     }
                 }
@@ -187,8 +187,8 @@ fun GlowTrend(
                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 10f)),
             )
 
-            // selected day marker
-            if (selected >= 0) {
+            // selected day marker (the newest day is always marked by the live dot, skip it there)
+            if (selected >= 0 && selected < points.size - 1) {
                 val sx = xFor(selected)
                 if (sx > -stepX && sx < size.width + stepX) {
                     val sy = yFor(selected)
@@ -227,7 +227,7 @@ fun GlowTrend(
                 )
             } else {
                 Text(
-                    if (maxPan > 0) "Tap a day for details · drag left for older days" else "Tap a day for details",
+                    if (maxPan > 0) "Tap a day for details · drag right for older days" else "Tap a day for details",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )

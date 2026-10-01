@@ -19,7 +19,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -28,6 +32,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +45,7 @@ import dev.yashas.expensetracker.data.repo.TxnRepository
 import dev.yashas.expensetracker.domain.model.MoneyFormat
 import dev.yashas.expensetracker.ui.components.categoryColor
 import dev.yashas.expensetracker.ui.theme.TextSecondary
+import java.time.LocalDate
 
 private val PALETTE = listOf(
     "series_violet", "series_cyan", "series_amber", "series_pink", "series_lime", "series_blue",
@@ -64,6 +71,17 @@ fun AnalyticsScreen(
     val vm: AnalyticsViewModel = viewModel(factory = AnalyticsViewModel.factory(repo))
     val state by vm.state.collectAsState()
     val data = state.data
+    var showDatePicker by remember { androidx.compose.runtime.mutableStateOf(false) }
+    val customRangeActive = state.customFrom != null && state.customTo != null
+
+    /** "12 Sep – 26 Sep" for the active custom window; empty when inactive. */
+    fun rangeLabel(from: Long?, to: Long?): String {
+        if (from == null || to == null) return ""
+        val f = LocalDate.ofEpochDay(from)
+        val t = LocalDate.ofEpochDay(to - 1) // end-exclusive
+        val mon = { d: LocalDate -> d.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH) }
+        return "${f.dayOfMonth} ${mon(f)} – ${t.dayOfMonth} ${mon(t)}"
+    }
 
     // real tag colors for the donut/legend (falls back to rotating palette)
     val catColorTokens = remember { androidx.compose.runtime.mutableStateMapOf<String, String>() }
@@ -102,11 +120,26 @@ fun AnalyticsScreen(
         ) {
             AnalyticsMath.Period.entries.forEach { p ->
                 FilterChip(
-                    selected = state.period == p,
+                    selected = state.period == p && !customRangeActive,
                     onClick = { vm.setPeriod(p) },
                     label = { Text(p.label) },
                 )
             }
+            // calendar toggle for custom From/To (icon-only until active, mirrors Transactions tab)
+            FilterChip(
+                selected = customRangeActive,
+                onClick = { showDatePicker = !showDatePicker },
+                label = {
+                    if (customRangeActive) Text(rangeLabel(state.customFrom, state.customTo))
+                },
+                leadingIcon = {
+                    Icon(
+                        Icons.Filled.DateRange,
+                        contentDescription = "Pick date range",
+                        modifier = Modifier.size(18.dp),
+                    )
+                },
+            )
         }
 
         if (data == null) {
@@ -114,7 +147,6 @@ fun AnalyticsScreen(
             Spacer(Modifier.height(16.dp))
             return@Column
         }
-
         // hero summary
         val totalSpend = data.monthBars.lastOrNull()?.expensePaise ?: 0L
         GlassCard(modifier = Modifier.then(sectionReveal(0))) {
@@ -192,42 +224,14 @@ fun AnalyticsScreen(
             }
         }
 
-        // top merchants with rank bars
-        if (data.topMerchants.isNotEmpty()) {
-            GlassCard(modifier = Modifier.then(sectionReveal(4))) {
-                Text("Top merchants", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                val maxM = data.topMerchants.maxOf { it.amountPaise }.coerceAtLeast(1L)
-                data.topMerchants.forEachIndexed { i, m ->
-                    Column {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("${i + 1}. ${m.label}", style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                MoneyFormat.formatPaise(m.amountPaise),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium,
-                            )
-                        }
-                        val frac = m.amountPaise.toFloat() / maxM
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(frac)
-                                .height(5.dp)
-                                .background(
-                                    categoryColor(PALETTE[i % PALETTE.size]),
-                                    CircleShape,
-                                ),
-                        )
-                    }
-                }
-            }
-        }
+        // (top merchants removed per Yashas — insights follow directly)
 
         // deterministic insights (04 §7 — no ML)
         if (data.txnCount > 0) {
             Text("Insights", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             AnalyticsMath.insightCards(data.categoryTotals, data.monthBars, data.txnCount) { MoneyFormat.formatPaise(it) }
                 .forEachIndexed { i, insight ->
-                    GlassCard(modifier = Modifier.then(sectionReveal(5 + i))) {
+                    GlassCard(modifier = Modifier.then(sectionReveal(4 + i))) {
                         Text(insight.headline, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                         Text(
                             insight.detail,
@@ -245,5 +249,39 @@ fun AnalyticsScreen(
             }
         }
         Spacer(Modifier.height(16.dp))
+    }
+
+    if (showDatePicker) {
+        val pickerState = androidx.compose.material3.rememberDateRangePickerState(
+            initialSelectedStartDateMillis = state.customFrom?.times(86_400_000L),
+            initialSelectedEndDateMillis = state.customTo?.minus(1)?.times(86_400_000L),
+        )
+        androidx.compose.material3.DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        val s = pickerState.selectedStartDateMillis
+                        val e = pickerState.selectedEndDateMillis
+                        if (s != null && e != null) {
+                            // millis → epochDay; +1 keeps the picked end day (end-exclusive bounds)
+                            vm.setCustomRange(s / 86_400_000L, e / 86_400_000L + 1)
+                        }
+                        showDatePicker = false
+                    },
+                ) { Text("Apply") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            },
+        ) {
+            androidx.compose.material3.DateRangePicker(
+                state = pickerState,
+                headline = null,
+                title = null,
+                showModeToggle = false,
+                modifier = Modifier.fillMaxWidth().height(460.dp),
+            )
+        }
     }
 }

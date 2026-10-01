@@ -57,6 +57,33 @@ class CaptureEngineTest {
     }
 
     @Test
+    fun creditSenderNameIsExtractedNotOwnBank() {
+        // incoming IMPS names the SENDER after "from"; the account holder after "to" is the user
+        val body = "Rs.5,000.00 credited to your Kotak Bank A/c X9624 from RAMESH KUMAR on 28-09-26. Ref 998877665544"
+        val p = engine.process(body).parsed!!
+        assertEquals(Direction.CREDIT, p.direction)
+        assertEquals("RAMESH KUMAR", p.merchant)
+    }
+
+    @Test
+    fun creditLowercaseSenderStillCaptured() {
+        val body = "Rs 750.50 has been credited to a/c XX1234 by amazon pay on 27-09-26. UPI Ref 554433221100"
+        val p = engine.process(body).parsed!!
+        assertEquals(Direction.CREDIT, p.direction)
+        assertEquals("amazon pay", p.merchant)
+    }
+
+    @Test
+    fun debitMerchantUnchangedByDirectionAwareness() {
+        val body = "Sent Rs.2,000.00 from Kotak Bank A/c X9624 to rajrishank0@okaxis on 26-09-26. UPI Ref 663561033525"
+        val p = engine.process(body).parsed!!
+        assertEquals(Direction.DEBIT, p.direction)
+        // VPA-style payee: capitalized-run pass finds nothing (payee is lowercase),
+        // so merchant falls back to the VPA exactly as before
+        assertEquals("rajrishank0@okaxis", p.merchant)
+    }
+
+    @Test
     fun iciciCardFixtureParsesSpentKeyword() {
         val body = "Rs.1500.00 spent on ICICI Credit Card XX4321 at ZOMATO on 26-09-26. Txn ID 123456789012"
         val p = engine.process(body).parsed!!

@@ -87,13 +87,17 @@ object AnalyticsMath {
 
 /** Analytics data source bridging DAO rows to UI models. */
 class AnalyticsRepository(private val dao: TransactionDao) {
-    suspend fun load(period: AnalyticsMath.Period): AnalyticsData {
-        val (from, to) = AnalyticsMath.windowFor(period)
+    suspend fun load(
+        period: AnalyticsMath.Period,
+        customWindow: Pair<Long, Long>? = null,
+    ): AnalyticsData {
+        val today = LocalDate.now()
+        val (from, to) = customWindow
+            ?: AnalyticsMath.windowFor(period)
         val daily = dao.dailySeriesByType(from, to)
 
         // chart history: fixed caps (12 months / 60 days), independent of the selected period —
         // purely graph fuel; ledger data itself is never pruned
-        val today = LocalDate.now()
         val histFromDay = today.minusDays(AnalyticsMath.HISTORY_DAYS - 1).toEpochDay()
         val dailyCapped = dao.dailySeries(histFromDay, today.plusDays(1).toEpochDay())
         val dailyDensified = run {
