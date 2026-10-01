@@ -119,7 +119,12 @@ private fun OnboardingGate(
     ) {
         when (step) {
             0 -> {
-                Text("Expense Tracker", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text("Tyche", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = dev.yashas.expensetracker.ui.theme.SeriesAmber)
+                Text(
+                    "Know where your money goes",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Spacer(Modifier.height(12.dp))
                 Text(
                     "Reads your bank SMS on-device and turns them into a private, offline ledger. " +
