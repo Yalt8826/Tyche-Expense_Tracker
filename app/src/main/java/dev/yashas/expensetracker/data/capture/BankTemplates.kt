@@ -37,6 +37,7 @@ object BankTemplates {
             senderCodes = listOf("AD-SBIBNK", "VM-SBIBNK", "SBIBNK"),
             fixtures = listOf(
                 "Rs 500 debited on 26-09-26 from A/c XX9876 towards AMAZON PAY. Ref 987654321012",
+                "Your A/c no. XX9876 is debited by Rs 1,200.00 on 26-09-26 towards UPI/AMAZON PAY. Not you? Call 1800111109. Ref 678765432100",
                 "Rs 2,500.75 credited on 28-09-26 in A/c XX9876 towards UPI from john@upi. Ref 887654321012",
             ),
         ),
