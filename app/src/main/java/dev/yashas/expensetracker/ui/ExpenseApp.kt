@@ -41,8 +41,10 @@ import dev.yashas.expensetracker.ui.navigation.Destination
 import dev.yashas.expensetracker.ui.navigation.bottomTabOrder
 import dev.yashas.expensetracker.ui.quickadd.QuickAddSheet
 import dev.yashas.expensetracker.ui.settings.SettingsScreen
+import dev.yashas.expensetracker.ui.splash.SplashScreen
 
 private const val SETTINGS_ROUTE = "settings"
+private const val SPLASH_ROUTE = "splash"
 
 /**
  * App shell: 4 tabs + quick-add FAB (00-MASTER §7). Review Inbox is reached from the
@@ -94,7 +96,7 @@ fun ExpenseApp(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Destination.HOME.route,
+            startDestination = SPLASH_ROUTE,
             modifier = Modifier.padding(innerPadding),
             // Review screen slides up from the bottom on enter, slides back down on exit
             // (350ms expressive tier, 03-ANIMATION). Other routes keep the default fade.
@@ -119,6 +121,15 @@ fun ExpenseApp(
                 }
             },
         ) {
+            composable(SPLASH_ROUTE) {
+                SplashScreen(
+                    onDone = {
+                        navController.navigate(Destination.HOME.route) {
+                            popUpTo(SPLASH_ROUTE) { inclusive = true }
+                        }
+                    },
+                )
+            }
             composable(Destination.HOME.route) {
                 HomeScreen(
                     repo = txnRepo,
