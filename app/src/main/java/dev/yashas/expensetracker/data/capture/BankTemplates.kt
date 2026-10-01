@@ -57,6 +57,15 @@ object BankTemplates {
                 "Rs.10,000.00 credited to A/c XX5566 on 29-09-26 towards IMPS from ACA999. Ref 212233445566",
             ),
         ),
+        Seed(
+            bankId = "BOB",
+            senderCodes = listOf("AD-BOBIND", "VM-BOBIND", "BZ-BOBIND", "BOBIND"),
+            fixtures = listOf(
+                "Rs 450.00 debited from A/c XX3311 on 01-10-26 towards UPI/SWIGGY. Ref 331122334455",
+                "Your A/c no. XX3311 is debited by Rs 1,850.00 on 01-10-26 towards UPI/AMAZON PAY. Not you? Call 1800. Ref 441122334455",
+                "Rs 7,500.00 credited to your A/c XX3311 on 01-10-26 towards IMPS from PRIYA SHARMA. Ref 551122334455",
+            ),
+        ),
     )
 
     /** Sender code → bankId for the allowlist stage. */
