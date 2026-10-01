@@ -87,6 +87,10 @@ object AnalyticsMath {
 
 /** Analytics data source bridging DAO rows to UI models. */
 class AnalyticsRepository(private val dao: TransactionDao) {
+
+    /** Change signal for live reloads: any transaction write re-emits here. */
+    fun observeTransactions() = dao.observeAll()
+
     suspend fun load(
         period: AnalyticsMath.Period,
         customWindow: Pair<Long, Long>? = null,

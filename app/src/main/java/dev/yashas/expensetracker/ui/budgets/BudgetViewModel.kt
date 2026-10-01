@@ -8,10 +8,13 @@ import dev.yashas.expensetracker.data.repo.BudgetRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** S15 Budget overview state; reloads after every editor save. */
+/** S15 Budget overview state; reloads after every editor save AND on any data change. */
 class BudgetViewModel(private val repo: BudgetRepository) : ViewModel() {
 
     data class UiState(
@@ -24,6 +27,16 @@ class BudgetViewModel(private val repo: BudgetRepository) : ViewModel() {
 
     init {
         refresh()
+        // live updates: any transaction write (confirm/tag/add/delete) or budget
+        // edit re-runs the load — no app restart needed to see new numbers
+        viewModelScope.launch {
+            combine(repo.observeTransactions(), repo.observeBudgets()) { txns, budgets ->
+                txns.size to budgets.size
+            }
+                .distinctUntilChanged()
+                .drop(1) // initial emission: refresh() above already covers it
+                .collect { refresh() }
+        }
     }
 
     fun refresh() {
