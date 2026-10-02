@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -180,40 +181,27 @@ fun LedgerScreen(
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 if (reviewMode) {
-                    // bubble targets: the card's suggestion, then user-created tags
-                    // (zero-spend but deliberate — a new tag must be usable immediately),
-                    // then all-time spending-ranked tags, then "More".
+                    // drag ring = MAJORITY tags only: all-time spending-ranked top 4,
+                    // plus the card's suggestion, plus "More". User-created tags enter
+                    // the ring as soon as they carry spend; with no spending history the
+                    // ring is just "More" — tap the card and tag from the full list.
                     val ranked = dev.yashas.expensetracker.data.repo.HomeBreakdown.slices(
                         rows = state.all.filter { it.type.name == "EXPENSE" },
                         nameByKey = state.categories.mapValues { c -> c.value.name },
                         colorTokenByKey = state.categories.mapValues { c -> c.value.colorToken },
-                    )
+                    ).take(4)
 
                     items(state.reviewGroups, key = { it.key }) { group ->
-                        // drag-to-tag targets assembled per group (dedup by key),
-                        // capped at 8 + "More" so the ring never overcrowds
-                        val targets = run {
-                            val list = buildList {
-                                group.suggestion?.let {
-                                    add(TagTarget(it.categoryKey, it.categoryKey, colorTokenForKey(it.categoryKey, state.categories)))
-                                }
-                                // every user-created tag — new tags must be droppable on day one
-                                state.categories.values
-                                    .filter { it.key.startsWith("user_") }
-                                    .sortedBy { it.name }
-                                    .forEach { cat ->
-                                        if (none { t -> t.key == cat.key }) {
-                                            add(TagTarget(cat.key, cat.name, cat.colorToken))
-                                        }
-                                    }
-                                ranked.forEach { slice ->
-                                    if (none { t -> t.key == slice.categoryKey }) {
-                                        add(TagTarget(slice.categoryKey, slice.label, slice.colorToken))
-                                    }
-                                }
-                                if (none { t -> t.key == "more" }) add(TagTarget("more", "More", "series_grey"))
+                        val targets = buildList {
+                            group.suggestion?.let {
+                                add(TagTarget(it.categoryKey, it.categoryKey, colorTokenForKey(it.categoryKey, state.categories)))
                             }
-                            if (list.size <= 9) list else list.take(8) + list.last()
+                            ranked.forEach { slice ->
+                                if (none { t -> t.key == slice.categoryKey }) {
+                                    add(TagTarget(slice.categoryKey, slice.label, slice.colorToken))
+                                }
+                            }
+                            if (none { t -> t.key == "more" }) add(TagTarget("more", "More", "series_grey"))
                         }
                         DragToTagCard(
                             targets = targets,
@@ -335,6 +323,10 @@ fun LedgerScreen(
         TransactionDetailSheet(
             txn = txn,
             categoryName = txn.categoryKey?.let { state.categories[it]?.name },
+            // full tag list (all categories) when the txn needs confirmation
+            allCategories = if (txn.provenance == Provenance.AUTO_REVIEW) {
+                state.categories.values.filter { it.parentId == null }.sortedBy { it.name }
+            } else null,
             onQuickConfirm = if (txn.provenance == Provenance.AUTO_REVIEW) {
                 { key ->
                     vm.confirm(txn.id, key)
@@ -518,12 +510,13 @@ private fun InboxZeroState() {
     }
 }
 
-/** S11 detail sheet: plain-facts explainability + optional quick-confirm + delete. */
+/** S11 detail sheet: plain-facts explainability + full tag grid for confirm + delete. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TransactionDetailSheet(
     txn: TransactionEntity,
     categoryName: String?,
+    allCategories: List<dev.yashas.expensetracker.data.db.entity.CategoryEntity>?,
     onQuickConfirm: ((String) -> Unit)?,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
@@ -553,10 +546,38 @@ private fun TransactionDetailSheet(
             DetailLine("Why this category?", if (txn.categoryKey == null) "You haven't tagged it yet" else "Matched your categories")
             if (onQuickConfirm != null) {
                 Spacer(Modifier.height(6.dp))
-                Text("Confirm as…", style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    QUICK_CHIPS.forEach { (key, label) ->
-                        AssistChip(onClick = { onQuickConfirm(key) }, label = { Text(label) })
+                Text("Tag as…", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    "Every transaction of this payee will get the same tag",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(6.dp))
+                androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                    columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(96.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(240.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    gridItems(
+                        allCategories.orEmpty(),
+                        key = { it.key },
+                    ) { cat ->
+                        FilterChip(
+                            selected = false,
+                            onClick = { onQuickConfirm(cat.key) },
+                            label = { Text(cat.name, maxLines = 1) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = dev.yashas.expensetracker.ui.components.categoryIcon(cat.icon),
+                                    contentDescription = null,
+                                    tint = dev.yashas.expensetracker.ui.components.categoryColor(cat.colorToken),
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            },
+                        )
                     }
                 }
             }
