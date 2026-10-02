@@ -180,29 +180,40 @@ fun LedgerScreen(
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 if (reviewMode) {
-                    // bubble targets ranked by ALL-TIME spending share (top 4) + "More".
-                    // Month-only ranking starves the ring at the start of a month (nothing
-                    // spent yet → only "More" appears); all-time always reflects the
-                    // categories the user actually uses. Home's bar stays month-scoped.
+                    // bubble targets: the card's suggestion, then user-created tags
+                    // (zero-spend but deliberate — a new tag must be usable immediately),
+                    // then all-time spending-ranked tags, then "More".
                     val ranked = dev.yashas.expensetracker.data.repo.HomeBreakdown.slices(
                         rows = state.all.filter { it.type.name == "EXPENSE" },
                         nameByKey = state.categories.mapValues { c -> c.value.name },
                         colorTokenByKey = state.categories.mapValues { c -> c.value.colorToken },
-                    ).take(4)
+                    )
 
                     items(state.reviewGroups, key = { it.key }) { group ->
-                        // drag-to-tag targets: biggest-spending tags (+ the card's own
-                        // suggestion if it's not already in the ring); "More" opens the picker
-                        val targets = buildList {
-                            group.suggestion?.let {
-                                add(TagTarget(it.categoryKey, it.categoryKey, colorTokenForKey(it.categoryKey, state.categories)))
-                            }
-                            ranked.forEach { slice ->
-                                if (none { t -> t.key == slice.categoryKey }) {
-                                    add(TagTarget(slice.categoryKey, slice.label, slice.colorToken))
+                        // drag-to-tag targets assembled per group (dedup by key),
+                        // capped at 8 + "More" so the ring never overcrowds
+                        val targets = run {
+                            val list = buildList {
+                                group.suggestion?.let {
+                                    add(TagTarget(it.categoryKey, it.categoryKey, colorTokenForKey(it.categoryKey, state.categories)))
                                 }
+                                // every user-created tag — new tags must be droppable on day one
+                                state.categories.values
+                                    .filter { it.key.startsWith("user_") }
+                                    .sortedBy { it.name }
+                                    .forEach { cat ->
+                                        if (none { t -> t.key == cat.key }) {
+                                            add(TagTarget(cat.key, cat.name, cat.colorToken))
+                                        }
+                                    }
+                                ranked.forEach { slice ->
+                                    if (none { t -> t.key == slice.categoryKey }) {
+                                        add(TagTarget(slice.categoryKey, slice.label, slice.colorToken))
+                                    }
+                                }
+                                if (none { t -> t.key == "more" }) add(TagTarget("more", "More", "series_grey"))
                             }
-                            if (none { t -> t.key == "more" }) add(TagTarget("more", "More", "series_grey"))
+                            if (list.size <= 9) list else list.take(8) + list.last()
                         }
                         DragToTagCard(
                             targets = targets,
