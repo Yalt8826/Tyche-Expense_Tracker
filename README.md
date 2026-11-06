@@ -6,7 +6,7 @@ Tyche turns the transaction messages your bank already sends into a ledger you c
 
 Built for two people (my sister and me), and we both use it every day.
 
-[**Download the latest APK →**](https://github.com/Yalt8826/Tyche-Expense_Tracker/releases/latest) · Android 10+ · see the [caution](#caution) below
+[**Download the latest APK →**](https://github.com/Yalt8826/Tyche-Expense_Tracker/releases) · Android 10+ · see the [caution](#caution) below
 
 <p align="center">
   <img src="docs/screenshots/01-home.webp" width="19%" alt="Home: spending this month and items to confirm" />
